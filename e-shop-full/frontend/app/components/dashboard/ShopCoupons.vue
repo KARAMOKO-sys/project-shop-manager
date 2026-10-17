@@ -221,7 +221,7 @@ async function destroy(coupon: Coupon): Promise<void> {
         </button>
       </AppState>
       <div v-else class="table-responsive">
-        <table class="table align-middle mb-0">
+        <table class="table table-stack align-middle mb-0">
           <caption class="visually-hidden">Codes promo de la boutique</caption>
           <thead class="table-light">
             <tr>
@@ -237,14 +237,14 @@ async function destroy(coupon: Coupon): Promise<void> {
           <tbody>
             <tr v-for="coupon in coupons" :key="coupon.id">
               <td><code class="fw-bold fs-6">{{ coupon.code }}</code></td>
-              <td class="text-nowrap fw-semibold">{{ formatCouponValue(coupon, shop.currency) }}</td>
-              <td class="text-nowrap">
+              <td class="text-nowrap fw-semibold" data-label="Réduction">{{ formatCouponValue(coupon, shop.currency) }}</td>
+              <td class="text-nowrap" data-label="Minimum">
                 <PriceTag v-if="coupon.min_order_amount > 0" :amount="coupon.min_order_amount" :currency="shop.currency" />
                 <span v-else class="text-muted">Aucun</span>
               </td>
-              <td class="small">{{ validity(coupon) }}</td>
-              <td class="text-nowrap">{{ usage(coupon) }}</td>
-              <td>
+              <td class="small" data-label="Validité">{{ validity(coupon) }}</td>
+              <td class="text-nowrap" data-label="Utilisations">{{ usage(coupon) }}</td>
+              <td data-label="Statut">
                 <span class="badge rounded-pill" :class="coupon.status === 'active' ? 'text-bg-success' : 'text-bg-secondary'">
                   {{ coupon.status === 'active' ? 'Actif' : 'Inactif' }}
                 </span>

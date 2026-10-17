@@ -3,6 +3,7 @@ definePageMeta({ middleware: 'guest' })
 useSeoMeta({ title: 'Inscription', description: 'Créez votre compte ShopAI gratuitement et lancez votre boutique en ligne.' })
 
 const { register } = useAuth()
+const { features } = usePlatform()
 const route = useRoute()
 const toast = useToast()
 
@@ -46,8 +47,11 @@ async function submit(): Promise<void> {
       <div class="card auth-card p-4 p-md-5">
         <h1 class="h2 mb-1">Créer un compte</h1>
         <p class="text-muted mb-4">Gratuit, sans engagement. Votre boutique est à 5 minutes.</p>
-        <div v-if="generalError" class="alert alert-danger" role="alert">{{ generalError }}</div>
-        <form novalidate @submit.prevent="submit">
+        <div v-if="!features.registration" class="alert alert-warning mb-0" role="alert">
+          <i class="bi bi-pause-circle me-1" aria-hidden="true" />Les inscriptions sont momentanément fermées. Réessayez plus tard.
+        </div>
+        <div v-else-if="generalError" class="alert alert-danger" role="alert">{{ generalError }}</div>
+        <form v-if="features.registration" novalidate @submit.prevent="submit">
           <div v-for="field in fields" :key="field.key" class="mb-3">
             <label :for="`register-${field.key}`" class="form-label">{{ field.label }}</label>
             <input

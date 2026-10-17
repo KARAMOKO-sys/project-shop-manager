@@ -93,7 +93,7 @@ function excerpt(text: string | null, length = 260): string {
 
         <section v-if="others.length" aria-labelledby="more-title">
           <h2 id="more-title" class="h3 mb-4">Toute la collection</h2>
-          <div class="row row-cols-1 row-cols-md-2 g-4">
+          <div class="row row-cols-2 g-3 g-md-4">
             <div v-for="product in others" :key="product.id" class="col">
               <ProductCard :product="product" :shop-slug="shop.slug" :color="theme.primary" addable @add="emit('add', $event)" />
             </div>

@@ -112,7 +112,7 @@ function addToCart(): void {
       </div>
       <section v-if="recommendations?.length" class="mt-5" aria-labelledby="recommendations-title">
         <h2 id="recommendations-title" class="h4 fw-bold mb-3">Les clients ont aussi acheté</h2>
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3 g-md-4">
           <div v-for="item in recommendations" :key="item.id" class="col">
             <ProductCard :product="item" :shop-slug="slug" :color="primary" addable @add="addRecommendation" />
           </div>

@@ -119,7 +119,7 @@ class OrderService
         });
     }
 
-    public function changeStatus(Order $order, OrderStatus $status): Order
+    public function changeStatus(Order $order, OrderStatus $status, ?string $paymentStatus = null): Order
     {
         if (! $order->status->canTransitionTo($status)) {
             throw ValidationException::withMessages([
@@ -127,16 +127,23 @@ class OrderService
             ]);
         }
 
-        DB::transaction(function () use ($order, $status) {
+        DB::transaction(function () use ($order, $status, $paymentStatus) {
             if ($status === OrderStatus::Cancelled) {
                 foreach ($order->items as $item) {
                     Product::whereKey($item->product_id)->increment('stock_quantity', $item->quantity);
+                }
+
+                if ($order->coupon_id) {
+                    Coupon::query()
+                        ->whereKey($order->coupon_id)
+                        ->where('times_used', '>', 0)
+                        ->decrement('times_used');
                 }
             }
 
             $order->update([
                 'status' => $status,
-                'payment_status' => $status === OrderStatus::Paid ? 'paid' : $order->payment_status,
+                'payment_status' => $paymentStatus ?? ($status === OrderStatus::Paid ? 'paid' : $order->payment_status),
             ]);
 
             Mail::to($order->customer->email)->send(new OrderStatusUpdated($order->load('shop', 'customer')));

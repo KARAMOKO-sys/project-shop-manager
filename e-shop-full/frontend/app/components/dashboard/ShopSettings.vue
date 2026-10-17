@@ -13,11 +13,21 @@ const form = reactive({
   description: props.shop.description ?? '',
   currency: props.shop.currency || 'XOF',
 })
+const paymentForm = reactive({
+  cash_on_delivery_enabled: props.shop.cash_on_delivery_enabled,
+  flutterwave_enabled: props.shop.flutterwave_enabled,
+  flutterwave_secret_key: '',
+  flutterwave_webhook_secret_hash: '',
+})
 const errors = ref<Record<string, string>>({})
+const paymentErrors = ref<Record<string, string>>({})
 const saving = ref(false)
+const savingPayments = ref(false)
 const deleting = ref(false)
 const logoUrl = ref(props.shop.logo_url ?? '')
 const savingLogo = ref(false)
+const runtimeConfig = useRuntimeConfig()
+const flutterwaveWebhookUrl = computed(() => `${String(runtimeConfig.public.apiBase).replace(/\/+$/, '')}/payments/flutterwave/webhook`)
 
 async function saveLogo(url: string | null): Promise<void> {
   savingLogo.value = true
@@ -54,6 +64,42 @@ async function save(): Promise<void> {
   }
   finally {
     saving.value = false
+  }
+}
+
+async function savePayments(): Promise<void> {
+  savingPayments.value = true
+  paymentErrors.value = {}
+
+  const body: Record<string, string | boolean> = {
+    cash_on_delivery_enabled: paymentForm.cash_on_delivery_enabled,
+    flutterwave_enabled: paymentForm.flutterwave_enabled,
+  }
+
+  if (paymentForm.flutterwave_secret_key.trim()) {
+    body.flutterwave_secret_key = paymentForm.flutterwave_secret_key.trim()
+  }
+
+  if (paymentForm.flutterwave_webhook_secret_hash.trim()) {
+    body.flutterwave_webhook_secret_hash = paymentForm.flutterwave_webhook_secret_hash.trim()
+  }
+
+  try {
+    const { data } = await api<Resource<Shop>>(`/shops/${props.shop.id}`, { method: 'PUT', body })
+    paymentForm.flutterwave_secret_key = ''
+    paymentForm.flutterwave_webhook_secret_hash = ''
+    emit('updated', data)
+    toast.success('Modes de paiement enregistrés.')
+  }
+  catch (error) {
+    paymentErrors.value = validationErrors(error)
+
+    if (!Object.keys(paymentErrors.value).length) {
+      toast.error(errorMessage(error, 'Les modes de paiement n’ont pas pu être enregistrés.'))
+    }
+  }
+  finally {
+    savingPayments.value = false
   }
 }
 
@@ -129,6 +175,68 @@ async function destroy(): Promise<void> {
         <button type="submit" class="btn btn-primary" :disabled="saving">
           <span v-if="saving" class="spinner-border spinner-border-sm me-2" aria-hidden="true" />
           Enregistrer
+        </button>
+      </div>
+    </form>
+
+    <form class="card p-4" novalidate @submit.prevent="savePayments">
+      <h2 class="h5 fw-bold mb-2">Paiements</h2>
+      <p class="text-muted">Les clés sont chiffrées côté serveur et ne sont jamais renvoyées à l’interface.</p>
+
+      <div class="form-check mb-3">
+        <input id="settings-cash-payment" v-model="paymentForm.cash_on_delivery_enabled" class="form-check-input" type="checkbox">
+        <label for="settings-cash-payment" class="form-check-label">Accepter le paiement à la livraison</label>
+      </div>
+
+      <div class="form-check mb-3">
+        <input id="settings-flutterwave-enabled" v-model="paymentForm.flutterwave_enabled" class="form-check-input" type="checkbox">
+        <label for="settings-flutterwave-enabled" class="form-check-label">Accepter les paiements en ligne via Flutterwave</label>
+      </div>
+
+      <div v-if="props.shop.flutterwave_configured" class="alert alert-success py-2" role="status">
+        <i class="bi bi-shield-check me-1" aria-hidden="true" />Compte Flutterwave configuré. Les valeurs secrètes ne sont pas affichées.
+      </div>
+
+      <div class="row g-3">
+        <div class="col-12">
+          <label for="settings-flutterwave-key" class="form-label">Clé secrète Flutterwave</label>
+          <input
+            id="settings-flutterwave-key"
+            v-model="paymentForm.flutterwave_secret_key"
+            type="password"
+            class="form-control"
+            :class="{ 'is-invalid': paymentErrors.flutterwave_secret_key }"
+            autocomplete="new-password"
+            :required="paymentForm.flutterwave_enabled && !props.shop.flutterwave_configured"
+            aria-describedby="settings-flutterwave-key-help settings-flutterwave-key-error"
+          >
+          <div id="settings-flutterwave-key-help" class="form-text">Saisissez une clé de test pour valider le parcours avant d’activer les paiements en production.</div>
+          <FieldError id="settings-flutterwave-key-error" :message="paymentErrors.flutterwave_secret_key" />
+        </div>
+        <div class="col-12">
+          <label for="settings-flutterwave-webhook" class="form-label">Secret hash du webhook Flutterwave</label>
+          <input
+            id="settings-flutterwave-webhook"
+            v-model="paymentForm.flutterwave_webhook_secret_hash"
+            type="password"
+            class="form-control"
+            :class="{ 'is-invalid': paymentErrors.flutterwave_webhook_secret_hash }"
+            autocomplete="new-password"
+            :required="paymentForm.flutterwave_enabled && !props.shop.flutterwave_configured"
+            aria-describedby="settings-flutterwave-webhook-help settings-flutterwave-webhook-error"
+          >
+          <div id="settings-flutterwave-webhook-help" class="form-text">
+            URL du webhook à enregistrer dans Flutterwave :
+            <code>{{ flutterwaveWebhookUrl }}</code>
+          </div>
+          <FieldError id="settings-flutterwave-webhook-error" :message="paymentErrors.flutterwave_webhook_secret_hash" />
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <button type="submit" class="btn btn-primary" :disabled="savingPayments">
+          <span v-if="savingPayments" class="spinner-border spinner-border-sm me-2" aria-hidden="true" />
+          Enregistrer les paiements
         </button>
       </div>
     </form>

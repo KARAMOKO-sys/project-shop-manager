@@ -7,11 +7,17 @@ import '../../../app/theme.dart';
 import '../../../models/models.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/common.dart';
-import '../product_form_screen.dart' show askImageSource, pickAndUploadShopImage;
+import '../product_form_screen.dart'
+    show askImageSource, pickAndUploadShopImage;
 
 /// General shop settings, mirroring `components/dashboard/ShopSettings.vue`.
 class SettingsTab extends StatefulWidget {
-  const SettingsTab({required this.shop, required this.onShopUpdated, required this.onDeleted, super.key});
+  const SettingsTab({
+    required this.shop,
+    required this.onShopUpdated,
+    required this.onDeleted,
+    super.key,
+  });
 
   final Shop shop;
   final ValueChanged<Shop> onShopUpdated;
@@ -21,16 +27,27 @@ class SettingsTab extends StatefulWidget {
   State<SettingsTab> createState() => _SettingsTabState();
 }
 
-class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClientMixin {
+class _SettingsTabState extends State<SettingsTab>
+    with AutomaticKeepAliveClientMixin {
   late final _name = TextEditingController(text: widget.shop.name);
   late final _tagline = TextEditingController(text: widget.shop.tagline ?? '');
-  late final _description = TextEditingController(text: widget.shop.description ?? '');
-  late String _currency = currencies.containsKey(widget.shop.currency) ? widget.shop.currency : 'XOF';
+  late final _description = TextEditingController(
+    text: widget.shop.description ?? '',
+  );
+  late final _flutterwaveSecretKey = TextEditingController();
+  late final _flutterwaveWebhookSecret = TextEditingController();
+  late String _currency = currencies.containsKey(widget.shop.currency)
+      ? widget.shop.currency
+      : 'XOF';
   late bool _active = widget.shop.isActive;
+  late bool _cashOnDeliveryEnabled = widget.shop.cashOnDeliveryEnabled;
+  late bool _flutterwaveEnabled = widget.shop.flutterwaveEnabled;
   late String? _logoUrl = widget.shop.logoUrl;
 
   Map<String, String> _errors = const {};
+  Map<String, String> _paymentErrors = const {};
   bool _saving = false;
+  bool _savingPayments = false;
   bool _savingLogo = false;
   bool _deleting = false;
   String? _logoError;
@@ -43,6 +60,8 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
     _name.dispose();
     _tagline.dispose();
     _description.dispose();
+    _flutterwaveSecretKey.dispose();
+    _flutterwaveWebhookSecret.dispose();
     super.dispose();
   }
 
@@ -54,7 +73,11 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
       _logoError = null;
     });
     try {
-      final url = await pickAndUploadShopImage(context, shopId: widget.shop.id, source: source);
+      final url = await pickAndUploadShopImage(
+        context,
+        shopId: widget.shop.id,
+        source: source,
+      );
       if (!mounted) return;
       if (url == null) {
         setState(() => _savingLogo = false);
@@ -76,15 +99,23 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
       _logoError = null;
     });
     try {
-      final updated = await context.api.updateShop(widget.shop.id, {'logo_url': url});
+      final updated = await context.api.updateShop(widget.shop.id, {
+        'logo_url': url,
+      });
       if (!mounted) return;
       setState(() => _logoUrl = updated.logoUrl);
       widget.onShopUpdated(updated);
       showToast(context, url != null ? 'Logo mis à jour.' : 'Logo retiré.');
     } on Object catch (error) {
       if (!mounted) return;
-      final message = error is ApiException ? error.fieldError('logo_url') : null;
-      showToast(context, message ?? errorText(error, 'Le logo n’a pas pu être enregistré.'), error: true);
+      final message = error is ApiException
+          ? error.fieldError('logo_url')
+          : null;
+      showToast(
+        context,
+        message ?? errorText(error, 'Le logo n’a pas pu être enregistré.'),
+        error: true,
+      );
     } finally {
       if (mounted) setState(() => _savingLogo = false);
     }
@@ -94,7 +125,9 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
     FocusScope.of(context).unfocus();
     final name = _name.text.trim();
     if (name.isEmpty) {
-      setState(() => _errors = {'name': 'Le nom de la boutique est obligatoire.'});
+      setState(
+        () => _errors = {'name': 'Le nom de la boutique est obligatoire.'},
+      );
       return;
     }
     setState(() {
@@ -117,7 +150,9 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _errors = error.fieldErrors);
-      if (error.fieldErrors.isEmpty) showToast(context, error.message, error: true);
+      if (error.fieldErrors.isEmpty) {
+        showToast(context, error.message, error: true);
+      }
     } on Object catch (error) {
       if (mounted) showToast(context, errorText(error), error: true);
     } finally {
@@ -125,11 +160,49 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
     }
   }
 
+  Future<void> _savePayments() async {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _savingPayments = true;
+      _paymentErrors = const {};
+    });
+    try {
+      final body = <String, dynamic>{
+        'cash_on_delivery_enabled': _cashOnDeliveryEnabled,
+        'flutterwave_enabled': _flutterwaveEnabled,
+        if (_flutterwaveSecretKey.text.trim().isNotEmpty)
+          'flutterwave_secret_key': _flutterwaveSecretKey.text.trim(),
+        if (_flutterwaveWebhookSecret.text.trim().isNotEmpty)
+          'flutterwave_webhook_secret_hash': _flutterwaveWebhookSecret.text
+              .trim(),
+      };
+      final updated = await context.api.updateShop(widget.shop.id, body);
+      if (!mounted) return;
+      setState(() {
+        _cashOnDeliveryEnabled = updated.cashOnDeliveryEnabled;
+        _flutterwaveEnabled = updated.flutterwaveEnabled;
+        _flutterwaveSecretKey.clear();
+        _flutterwaveWebhookSecret.clear();
+      });
+      widget.onShopUpdated(updated);
+      showToast(context, 'Moyens de paiement enregistrés.');
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _paymentErrors = error.fieldErrors);
+      if (error.fieldErrors.isEmpty) {
+        showToast(context, error.message, error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _savingPayments = false);
+    }
+  }
+
   Future<void> _delete() async {
     final confirmed = await confirmAction(
       context,
       title: 'Supprimer la boutique ?',
-      message: 'Supprimer définitivement la boutique « ${widget.shop.name} » et tous ses produits ?',
+      message:
+          'Supprimer définitivement la boutique « ${widget.shop.name} » et tous ses produits ?',
       confirmLabel: 'Supprimer la boutique',
     );
     if (!confirmed || !mounted) return;
@@ -141,7 +214,11 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
       widget.onDeleted();
     } on Object catch (error) {
       if (!mounted) return;
-      showToast(context, errorText(error, 'La suppression a échoué.'), error: true);
+      showToast(
+        context,
+        errorText(error, 'La suppression a échoué.'),
+        error: true,
+      );
       setState(() => _deleting = false);
     }
   }
@@ -161,8 +238,13 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
         children: [
           _logoSection(),
           const SizedBox(height: 16),
-          if (widget.shop.url.isNotEmpty) ...[_urlSection(), const SizedBox(height: 16)],
+          if (widget.shop.url.isNotEmpty) ...[
+            _urlSection(),
+            const SizedBox(height: 16),
+          ],
           _generalSection(),
+          const SizedBox(height: 16),
+          _paymentsSection(),
           const SizedBox(height: 16),
           _dangerSection(),
         ],
@@ -231,7 +313,10 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
           'Format carré conseillé. JPEG, PNG ou WebP — 4 Mo maximum.',
           style: TextStyle(color: muted, fontSize: 12.5),
         ),
-        if (_logoError != null) ...[const SizedBox(height: 10), NoticeBanner(message: _logoError!)],
+        if (_logoError != null) ...[
+          const SizedBox(height: 10),
+          NoticeBanner(message: _logoError!),
+        ],
       ],
     );
   }
@@ -256,7 +341,10 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                 child: SelectableText(
                   widget.shop.url,
                   maxLines: 2,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               IconButton(
@@ -290,7 +378,10 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
         DropdownButtonFormField<String>(
           initialValue: _currency,
           isExpanded: true,
-          decoration: InputDecoration(labelText: 'Devise', errorText: _errors['currency']),
+          decoration: InputDecoration(
+            labelText: 'Devise',
+            errorText: _errors['currency'],
+          ),
           items: [
             for (final entry in currencies.entries)
               DropdownMenuItem(
@@ -308,7 +399,11 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
           maxLength: 160,
           textCapitalization: TextCapitalization.sentences,
           textInputAction: TextInputAction.next,
-          decoration: InputDecoration(labelText: 'Slogan', counterText: '', errorText: _errors['tagline']),
+          decoration: InputDecoration(
+            labelText: 'Slogan',
+            counterText: '',
+            errorText: _errors['tagline'],
+          ),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -328,16 +423,95 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
           contentPadding: EdgeInsets.zero,
           value: _active,
           onChanged: (value) => setState(() => _active = value),
-          title: const Text('Boutique en ligne', style: TextStyle(fontWeight: FontWeight.w600)),
+          title: const Text(
+            'Boutique en ligne',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
           subtitle: Text(
-            _active ? 'Votre boutique est visible par vos clients.' : 'Votre boutique est masquée du public.',
+            _active
+                ? 'Votre boutique est visible par vos clients.'
+                : 'Votre boutique est masquée du public.',
             style: const TextStyle(color: muted, fontSize: 12.5),
           ),
         ),
         if (_errors['status'] != null)
-          Text(_errors['status']!, style: const TextStyle(color: danger, fontSize: 12)),
+          Text(
+            _errors['status']!,
+            style: const TextStyle(color: danger, fontSize: 12),
+          ),
         const SizedBox(height: 12),
-        LoadingButton(label: 'Enregistrer', icon: Icons.check, loading: _saving, onPressed: _save),
+        LoadingButton(
+          label: 'Enregistrer',
+          icon: Icons.check,
+          loading: _saving,
+          onPressed: _save,
+        ),
+      ],
+    );
+  }
+
+  Widget _paymentsSection() {
+    return FormSection(
+      title: 'Moyens de paiement',
+      subtitle:
+          'Les clés Flutterwave sont chiffrées sur le serveur et ne sont jamais renvoyées à l’application.',
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _cashOnDeliveryEnabled,
+          onChanged: (value) => setState(() => _cashOnDeliveryEnabled = value),
+          title: const Text(
+            'Paiement à la livraison',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _flutterwaveEnabled,
+          onChanged: (value) => setState(() => _flutterwaveEnabled = value),
+          title: const Text(
+            'Paiement en ligne (Flutterwave)',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            widget.shop.flutterwaveConfigured
+                ? 'Identifiants configurés. Laissez les champs vides pour les conserver.'
+                : 'Ajoutez les identifiants marchand avant d’activer le paiement en ligne.',
+            style: const TextStyle(color: muted, fontSize: 12.5),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _flutterwaveSecretKey,
+          obscureText: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: InputDecoration(
+            labelText: 'Clé secrète Flutterwave',
+            helperText: 'Laissez vide pour conserver la clé enregistrée.',
+            errorText: _paymentErrors['flutterwave_secret_key'],
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _flutterwaveWebhookSecret,
+          obscureText: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: InputDecoration(
+            labelText: 'Secret hash du webhook',
+            helperText:
+                'Configurez le même secret dans votre tableau de bord Flutterwave.',
+            errorText: _paymentErrors['flutterwave_webhook_secret_hash'],
+          ),
+        ),
+        const SizedBox(height: 12),
+        LoadingButton(
+          label: 'Enregistrer les paiements',
+          icon: Icons.lock_outline,
+          loading: _savingPayments,
+          onPressed: _savePayments,
+        ),
       ],
     );
   }
@@ -353,7 +527,10 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Zone de danger', style: headingStyle(fontSize: 18, color: danger)),
+            Text(
+              'Zone de danger',
+              style: headingStyle(fontSize: 18, color: danger),
+            ),
             const SizedBox(height: 6),
             const Text(
               'La suppression est définitive : produits, commandes et paramètres seront perdus.',
@@ -370,7 +547,10 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: danger),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: danger,
+                      ),
                     )
                   : const Icon(Icons.delete_outline),
               label: const Text('Supprimer la boutique'),

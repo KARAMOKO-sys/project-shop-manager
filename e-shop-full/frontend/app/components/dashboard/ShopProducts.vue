@@ -76,7 +76,7 @@ async function destroy(product: Product): Promise<void> {
       </NuxtLink>
     </AppState>
     <div v-else class="table-responsive">
-      <table class="table align-middle mb-0">
+      <table class="table table-stack align-middle mb-0">
         <caption class="visually-hidden">Liste des produits de la boutique</caption>
         <thead class="table-light">
           <tr>
@@ -102,16 +102,16 @@ async function destroy(product: Product): Promise<void> {
                   </div>
                 </div>
               </td>
-              <td class="text-nowrap"><PriceTag :amount="product.price" :currency="product.currency" /></td>
-              <td>
+              <td class="text-nowrap" data-label="Prix"><PriceTag :amount="product.price" :currency="product.currency" /></td>
+              <td data-label="Stock">
                 <span :class="{ 'text-danger fw-semibold': product.stock_quantity <= 0 }">{{ product.stock_quantity }}</span>
               </td>
-              <td>
+              <td data-label="Statut">
                 <span class="badge rounded-pill" :class="product.status === 'published' ? 'text-bg-primary' : 'text-bg-light'">
                   {{ product.status === 'published' ? 'Publié' : 'Brouillon' }}
                 </span>
               </td>
-              <td>
+              <td data-label="Vérification IA">
                 <button
                   type="button"
                   class="btn btn-link p-0 text-decoration-none"

@@ -36,6 +36,14 @@ function onShopUpdated(updated: Shop): void {
   shop.value = updated
 }
 
+/** On narrow screens the tab bar scrolls: keep the active tab visible. */
+function revealActiveTab(): void {
+  nextTick(() => document.getElementById(`tab-${activeTab.value}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }))
+}
+
+watch(activeTab, revealActiveTab)
+onMounted(revealActiveTab)
+
 function onTabKeydown(event: KeyboardEvent, index: number): void {
   const offset = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
 
@@ -84,7 +92,7 @@ function onTabKeydown(event: KeyboardEvent, index: number): void {
         </div>
       </div>
 
-      <ul class="nav nav-tabs flex-nowrap overflow-auto mb-4" role="tablist" aria-label="Gestion de la boutique">
+      <ul class="nav nav-tabs dashboard-tabs flex-nowrap overflow-auto mb-4" role="tablist" aria-label="Gestion de la boutique">
         <li v-for="(tab, index) in TABS" :key="tab.key" class="nav-item" role="presentation">
           <button
             :id="`tab-${tab.key}`"

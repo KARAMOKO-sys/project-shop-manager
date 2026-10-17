@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Services\PlatformSettings;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreShopRequest extends FormRequest
 {
@@ -33,6 +35,22 @@ class StoreShopRequest extends FormRequest
             'categories' => ['nullable', 'array', 'max:12'],
             'categories.*' => ['string', 'max:60'],
             ...UpdateShopRequest::themeRules(),
+        ];
+    }
+
+    /**
+     * @return array<int, \Closure(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $limit = (int) app(PlatformSettings::class)->get('limits.max_shops_per_user');
+
+                if ($limit > 0 && $this->user()->shops()->count() >= $limit) {
+                    $validator->errors()->add('name', "Vous avez atteint le nombre maximum de boutiques autorisé ({$limit}).");
+                }
+            },
         ];
     }
 }

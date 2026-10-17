@@ -3,9 +3,11 @@
 namespace App\Http\Requests;
 
 use App\Enums\PaymentMethod;
+use App\Models\Shop;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class CheckoutRequest extends FormRequest
 {
@@ -35,6 +37,27 @@ class CheckoutRequest extends FormRequest
             'coupon_code' => ['nullable', 'string', 'max:64'],
             'payment_method' => ['required', Rule::enum(PaymentMethod::class)],
             'notes' => ['nullable', 'string', 'max:1000'],
+        ];
+    }
+
+    /**
+     * @return array<int, \Closure(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if ($validator->errors()->has('payment_method')) {
+                    return;
+                }
+
+                $shop = $this->route('shop');
+                $method = PaymentMethod::tryFrom((string) $this->input('payment_method'));
+
+                if ($shop instanceof Shop && $method && ! $shop->acceptsPaymentMethod($method)) {
+                    $validator->errors()->add('payment_method', 'Ce mode de paiement n’est pas activé pour cette boutique.');
+                }
+            },
         ];
     }
 }

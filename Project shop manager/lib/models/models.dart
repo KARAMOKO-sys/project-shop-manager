@@ -183,6 +183,10 @@ class Shop {
     required this.productCount,
     required this.categories,
     required this.url,
+    this.cashOnDeliveryEnabled = false,
+    this.flutterwaveEnabled = false,
+    this.flutterwaveConfigured = false,
+    this.paymentMethods = const [],
   });
 
   final int id;
@@ -199,6 +203,10 @@ class Shop {
   final int? productCount;
   final List<Category> categories;
   final String url;
+  final bool cashOnDeliveryEnabled;
+  final bool flutterwaveEnabled;
+  final bool flutterwaveConfigured;
+  final List<String> paymentMethods;
 
   bool get isActive => status == 'active';
   String get initial => name.isEmpty ? 'B' : name.characters.first.toUpperCase();
@@ -218,6 +226,10 @@ class Shop {
     productCount: json['products_count'] is num ? _int(json['products_count']) : null,
     categories: _list(json['categories'], Category.fromJson),
     url: _string(json['url']),
+    cashOnDeliveryEnabled: json['cash_on_delivery_enabled'] == true,
+    flutterwaveEnabled: json['flutterwave_enabled'] == true,
+    flutterwaveConfigured: json['flutterwave_configured'] == true,
+    paymentMethods: _strings(json['payment_methods']),
   );
 }
 
@@ -381,8 +393,7 @@ enum OrderStatus {
 
 enum PaymentMethod {
   cashOnDelivery('cash_on_delivery', 'Paiement à la livraison', 'Réglez en espèces à la réception de votre commande.', Icons.payments_outlined),
-  mobileMoney('mobile_money', 'Mobile Money', 'Orange Money, MTN MoMo, Wave, Moov Money…', Icons.phone_android),
-  card('card', 'Carte bancaire', 'Visa, Mastercard — paiement sécurisé.', Icons.credit_card);
+  flutterwave('flutterwave', 'Paiement en ligne', 'Mobile Money ou carte via Flutterwave.', Icons.credit_card);
 
   const PaymentMethod(this.value, this.label, this.description, this.icon);
 
@@ -391,9 +402,13 @@ enum PaymentMethod {
   final String description;
   final IconData icon;
 
-  static String labelOf(String value) => PaymentMethod.values
-      .firstWhere((method) => method.value == value, orElse: () => cashOnDelivery)
-      .label;
+  static String labelOf(String value) => switch (value) {
+    'mobile_money' => 'Mobile Money',
+    'card' => 'Carte bancaire',
+    _ => PaymentMethod.values
+        .firstWhere((method) => method.value == value, orElse: () => cashOnDelivery)
+        .label,
+  };
 }
 
 class Customer {
@@ -492,6 +507,13 @@ class Order {
     items: _list(json['items'], OrderItem.fromJson),
     createdAt: _date(json['created_at']),
   );
+}
+
+class CheckoutResult {
+  const CheckoutResult({required this.order, this.paymentUrl});
+
+  final Order order;
+  final String? paymentUrl;
 }
 
 class RevenueDay {

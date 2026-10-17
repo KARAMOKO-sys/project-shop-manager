@@ -9,6 +9,7 @@ useSeoMeta({
 })
 
 const api = useApi()
+const { features: platformFeatures } = usePlatform()
 const { data: home, status, error, refresh } = await useAsyncData('home', () =>
   api<Resource<HomeData>>('/home').then(response => response.data),
 )
@@ -118,7 +119,7 @@ const steps = [
         title="Bientôt des pépites ici"
         text="Les premiers produits des boutiques ShopAI apparaîtront très vite."
       />
-      <div v-else class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
+      <div v-else class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3 g-md-4">
         <div v-for="product in home.featured_products" :key="product.id" class="col">
           <ProductCard :product="product" show-shop />
         </div>
@@ -225,6 +226,7 @@ const steps = [
     </section>
 
     <ChatWidget
+      v-if="platformFeatures.platform_chat"
       endpoint="/chat"
       :suggestions="['Comment créer ma boutique ?', 'Quels moyens de paiement ?', 'Combien ça coûte ?']"
       welcome="Bonjour ! Je suis l’assistant ShopAI. Posez-moi vos questions sur la création de votre boutique en ligne."

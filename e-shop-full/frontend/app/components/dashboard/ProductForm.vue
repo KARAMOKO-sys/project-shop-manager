@@ -11,6 +11,7 @@ const emit = defineEmits<{ saved: [product: Product] }>()
 
 const api = useApi()
 const toast = useToast()
+const { features: platformFeatures } = usePlatform()
 
 const TONES: { value: DescriptionTone, label: string }[] = [
   { value: 'professionnel', label: 'Professionnel' },
@@ -210,10 +211,10 @@ async function submit(): Promise<void> {
       <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
         <div>
           <h2 class="h5 fw-bold mb-1">Description</h2>
-          <p class="small text-muted mb-0">Laissez l’IA rédiger une fiche produit qui donne envie d’acheter.</p>
+          <p v-if="platformFeatures.ai_assistant" class="small text-muted mb-0">Laissez l’IA rédiger une fiche produit qui donne envie d’acheter.</p>
         </div>
       </div>
-      <div class="row g-2 align-items-end mb-3">
+      <div v-if="platformFeatures.ai_assistant" class="row g-2 align-items-end mb-3">
         <div class="col-md-6">
           <label for="product-features" class="form-label small">Points clés (optionnel)</label>
           <input id="product-features" v-model="features" type="text" class="form-control" placeholder="Ex. : 100 % coton, fait main, taille unique">

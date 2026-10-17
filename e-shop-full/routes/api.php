@@ -5,9 +5,11 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ChatController;
 use App\Http\Controllers\Api\V1\CouponController;
+use App\Http\Controllers\Api\V1\FlutterwavePaymentController;
 use App\Http\Controllers\Api\V1\HomeController;
 use App\Http\Controllers\Api\V1\ModerationController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\PlatformSettingsController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ShopController;
 use App\Http\Controllers\Api\V1\StorefrontController;
@@ -18,13 +20,19 @@ Route::get('/health', fn () => ['status' => 'ok']);
 
 Route::prefix('v1')->name('v1.')->group(function () {
     Route::middleware('throttle:10,1')->group(function () {
-        Route::post('auth/register', [AuthController::class, 'register'])->name('auth.register');
+        Route::post('auth/register', [AuthController::class, 'register'])->middleware('feature:registration')->name('auth.register');
         Route::post('auth/login', [AuthController::class, 'login'])->name('auth.login');
     });
 
+    Route::get('platform', [PlatformSettingsController::class, 'public'])->name('platform');
     Route::get('home', [HomeController::class, 'index'])->name('home');
     Route::get('templates', [HomeController::class, 'templates'])->name('templates');
-    Route::post('chat', [ChatController::class, 'platform'])->middleware('throttle:ai')->name('chat');
+    Route::post('chat', [ChatController::class, 'platform'])->middleware(['feature:platform_chat', 'throttle:ai'])->name('chat');
+    Route::post('payments/flutterwave/webhook', [FlutterwavePaymentController::class, 'webhook'])
+        ->middleware('throttle:60,1')
+        ->name('payments.flutterwave.webhook');
+    Route::get('payments/flutterwave/callback', [FlutterwavePaymentController::class, 'callback'])
+        ->name('payments.flutterwave.callback');
 
     Route::prefix('storefront/{shop:slug}')->name('storefront.')->group(function () {
         Route::get('/', [StorefrontController::class, 'show'])->name('show');
@@ -34,20 +42,20 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('orders/{orderNumber}', [StorefrontController::class, 'order'])->middleware('throttle:10,1')->name('order');
         Route::post('coupons/check', [CouponController::class, 'check'])->middleware('throttle:20,1')->name('coupons.check');
         Route::post('checkout', [StorefrontController::class, 'checkout'])->middleware('throttle:20,1')->name('checkout');
-        Route::post('chat', [ChatController::class, 'shop'])->middleware('throttle:ai')->name('chat');
+        Route::post('chat', [ChatController::class, 'shop'])->middleware(['feature:shop_chat', 'throttle:ai'])->name('chat');
     });
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
 
-        Route::middleware('throttle:ai')->prefix('ai')->name('ai.')->group(function () {
+        Route::middleware(['feature:ai_assistant', 'throttle:ai'])->prefix('ai')->name('ai.')->group(function () {
             Route::post('shop-setup', [AssistantController::class, 'shopSetup'])->name('shop-setup');
             Route::post('product-description', [AssistantController::class, 'productDescription'])->name('product-description');
         });
 
         Route::get('shops', [ShopController::class, 'index'])->name('shops.index');
-        Route::post('shops', [ShopController::class, 'store'])->name('shops.store');
+        Route::post('shops', [ShopController::class, 'store'])->middleware('feature:shop_creation')->name('shops.store');
 
         Route::prefix('shops/{shop}')->middleware('can:manage,shop')->scopeBindings()->group(function () {
             Route::get('/', [ShopController::class, 'show'])->name('shops.show');
@@ -67,6 +75,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
             Route::get('orders', [OrderController::class, 'index'])->name('shops.orders.index');
             Route::patch('orders/{order}', [OrderController::class, 'update'])->name('shops.orders.update');
+        });
+
+        Route::middleware('can:manage-platform')->prefix('admin/settings')->name('admin.settings.')->group(function () {
+            Route::get('/', [PlatformSettingsController::class, 'index'])->name('index');
+            Route::put('/', [PlatformSettingsController::class, 'update'])->name('update');
         });
 
         Route::middleware('can:moderate-products')->prefix('admin/moderation')->name('admin.moderation.')->group(function () {

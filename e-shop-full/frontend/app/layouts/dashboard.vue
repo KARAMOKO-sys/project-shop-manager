@@ -1,12 +1,18 @@
 <script setup lang="ts">
 const { user, isAdmin, logout } = useAuth()
+const { config, features } = usePlatform()
 
 useCloseOnNavigate('#dashboardSidebar', 'Offcanvas')
 
 const links = computed(() => [
   { to: '/dashboard', label: 'Mes boutiques', icon: 'bi-grid-1x2' },
-  { to: '/creer-ma-boutique', label: 'Nouvelle boutique', icon: 'bi-plus-circle' },
-  ...(isAdmin.value ? [{ to: '/admin/moderation', label: 'Modération', icon: 'bi-shield-check' }] : []),
+  ...(features.value.shop_creation ? [{ to: '/creer-ma-boutique', label: 'Nouvelle boutique', icon: 'bi-plus-circle' }] : []),
+  ...(isAdmin.value
+    ? [
+        { to: '/admin/moderation', label: 'Modération', icon: 'bi-shield-check' },
+        { to: '/admin/parametres', label: 'Paramètres', icon: 'bi-sliders' },
+      ]
+    : []),
   { to: '/', label: 'Retour au site', icon: 'bi-house' },
 ])
 </script>
@@ -14,9 +20,8 @@ const links = computed(() => [
 <template>
   <div class="d-lg-flex">
     <header class="navbar bg-white border-bottom sticky-top d-lg-none px-3">
-      <NuxtLink to="/dashboard" class="brand-logo" aria-label="ShopAI, tableau de bord">
-        <span class="brand-mark" aria-hidden="true"><i class="bi bi-stars" /></span>
-        <span>Shop<span class="brand-ai">AI</span></span>
+      <NuxtLink to="/dashboard" class="brand-logo" :aria-label="`${config.platform.name}, tableau de bord`">
+        <AppBrand />
       </NuxtLink>
       <button
         type="button"
@@ -38,8 +43,7 @@ const links = computed(() => [
     >
       <div class="offcanvas-header">
         <span id="dashboardSidebarLabel" class="brand-logo">
-          <span class="brand-mark" aria-hidden="true"><i class="bi bi-stars" /></span>
-          <span>Shop<span class="brand-ai">AI</span></span>
+          <AppBrand />
         </span>
         <button
           type="button"
@@ -50,9 +54,8 @@ const links = computed(() => [
         />
       </div>
       <div class="offcanvas-body d-flex flex-column p-3 h-100">
-        <NuxtLink to="/dashboard" class="brand-logo d-none d-lg-inline-flex px-2 mb-4" aria-label="ShopAI, tableau de bord">
-          <span class="brand-mark" aria-hidden="true"><i class="bi bi-stars" /></span>
-          <span>Shop<span class="brand-ai">AI</span></span>
+        <NuxtLink to="/dashboard" class="brand-logo d-none d-lg-inline-flex px-2 mb-4" :aria-label="`${config.platform.name}, tableau de bord`">
+          <AppBrand />
         </NuxtLink>
         <nav aria-label="Menu du tableau de bord">
           <ul class="nav flex-column gap-1">
@@ -79,8 +82,9 @@ const links = computed(() => [
     </main>
 
     <ChatWidget
+      v-if="features.platform_chat"
       endpoint="/chat"
-      title="Coach ShopAI"
+      :title="`Coach ${config.platform.name}`"
       subtitle="Conseils pour vendre plus, 24h/24"
       welcome="Bonjour ! Je peux vous aider à rédiger vos fiches produits, fixer vos prix ou attirer plus de clients."
       :suggestions="['Comment vendre plus ?', 'Comment fixer mes prix ?', 'Activer Mobile Money']"

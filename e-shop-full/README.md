@@ -10,7 +10,8 @@ Chaque commerçant crée sa boutique en quelques minutes, choisit un modèle de 
 - Création de boutique guidée par l'IA, à partir d'une phrase décrivant l'activité
 - 6 modèles de design (Épuré, Mode, Saveurs, Artisan, High-Tech, Beauté), personnalisables : couleurs, police, arrondis, style de bannière, mise en page
 - Catalogue, catégories, gestion du stock, commandes avec transitions de statut contrôlées
-- Checkout sécurisé : prix, stock et codes promo calculés côté serveur ; paiement à la livraison, Mobile Money ou carte
+- Checkout sécurisé : prix, stock et codes promo calculés côté serveur ; paiement à la livraison ou paiement en ligne hébergé par Flutterwave (carte et moyens locaux disponibles pour le compte du marchand)
+- Configuration de Flutterwave par boutique avec secrets chiffrés, vérification des transactions côté serveur et validation des webhooks
 - Codes promo gérés par le marchand, avec vérification au moment du paiement
 - Suivi de commande pour le client, à partir du numéro de commande et de l'email
 - Emails : confirmation de commande au client, alerte au marchand, changement de statut, alerte de stock bas
@@ -55,6 +56,8 @@ Comptes de démonstration (mot de passe `password`) :
 - `marchand@shopai.test` : marchand, propriétaire des 4 boutiques de démonstration
 
 Le seed crée aussi 2 produits suspects, pour montrer l'agent de modération en action, et le code promo `BIENVENUE10` sur la boutique Atelier Kente.
+
+Pour activer Flutterwave, ouvrez **Paramètres → Paiements** dans le tableau de bord de la boutique, saisissez la clé secrète et le secret hash du webhook fournis par le compte Flutterwave du marchand, puis activez les paiements en ligne. Enregistrez l’URL de webhook affichée par le tableau de bord Flutterwave. Commencez avec les identifiants de test ; les identifiants de production ne doivent jamais être partagés ni ajoutés au dépôt. Le client est redirigé vers la page de paiement hébergée par Flutterwave, et une commande n’est marquée comme payée qu’après vérification serveur du montant, de la devise et de la référence.
 
 ## Tests
 

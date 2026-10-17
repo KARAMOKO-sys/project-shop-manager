@@ -3,6 +3,7 @@
 namespace App\Services\AI;
 
 use App\Enums\ModerationStatus;
+use App\Services\PlatformSettings;
 
 final readonly class ModerationResult
 {
@@ -17,9 +18,11 @@ final readonly class ModerationResult
 
     public function status(): ModerationStatus
     {
+        $settings = app(PlatformSettings::class);
+
         return match (true) {
-            $this->riskScore >= config('shopai.moderation.reject_threshold') => ModerationStatus::Rejected,
-            $this->riskScore >= config('shopai.moderation.review_threshold') => ModerationStatus::PendingReview,
+            $this->riskScore >= $settings->get('moderation.reject_threshold') => ModerationStatus::Rejected,
+            $this->riskScore >= $settings->get('moderation.review_threshold') => ModerationStatus::PendingReview,
             default => ModerationStatus::Approved,
         };
     }

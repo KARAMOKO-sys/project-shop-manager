@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CheckoutRequest;
 use App\Http\Requests\TrackOrderRequest;
@@ -10,6 +12,9 @@ use App\Http\Resources\ProductResource;
 use App\Http\Resources\ShopResource;
 use App\Models\Shop;
 use App\Services\OrderService;
+use App\Services\Payments\FlutterwavePaymentException;
+use App\Services\Payments\FlutterwavePaymentService;
+use App\Services\PlatformSettings;
 use App\Services\RecommendationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -58,9 +63,13 @@ class StorefrontController extends Controller
         return new ProductResource($product);
     }
 
-    public function recommendations(Shop $shop, string $productSlug, RecommendationService $recommendations): AnonymousResourceCollection
+    public function recommendations(Shop $shop, string $productSlug, RecommendationService $recommendations, PlatformSettings $settings): AnonymousResourceCollection
     {
         abort_unless($shop->isActive(), 404);
+
+        if (! $settings->featureEnabled('recommendations')) {
+            return ProductResource::collection([]);
+        }
 
         $product = $shop->products()->publiclyVisible()->where('slug', $productSlug)->firstOrFail();
 
@@ -81,11 +90,38 @@ class StorefrontController extends Controller
         return new OrderResource($order);
     }
 
-    public function checkout(CheckoutRequest $request, Shop $shop, OrderService $orders): JsonResponse
-    {
+    public function checkout(
+        CheckoutRequest $request,
+        Shop $shop,
+        OrderService $orders,
+        FlutterwavePaymentService $payments,
+    ): JsonResponse {
         abort_unless($shop->isActive(), 404);
 
-        $order = $orders->checkout($shop, $request->validated());
+        $payload = $request->validated();
+
+        if (in_array($payload['payment_method'], [PaymentMethod::MobileMoney->value, PaymentMethod::Card->value], true)) {
+            $payload['payment_method'] = PaymentMethod::Flutterwave->value;
+        }
+
+        $order = $orders->checkout($shop, $payload);
+
+        if ($order->payment_method === PaymentMethod::Flutterwave) {
+            try {
+                $paymentUrl = $payments->startCheckout($order);
+            } catch (FlutterwavePaymentException) {
+                $orders->changeStatus($order, OrderStatus::Cancelled, 'failed');
+
+                return response()->json([
+                    'message' => 'Le paiement en ligne est temporairement indisponible. La commande a été annulée ; vous pouvez réessayer.',
+                ], 502);
+            }
+
+            return (new OrderResource($order))
+                ->additional(['payment_url' => $paymentUrl])
+                ->response()
+                ->setStatusCode(201);
+        }
 
         return (new OrderResource($order))->response()->setStatusCode(201);
     }

@@ -98,7 +98,7 @@ export interface Product {
 }
 
 export type OrderStatus = 'received' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
-export type PaymentMethod = 'cash_on_delivery' | 'mobile_money' | 'card'
+export type PaymentMethod = 'cash_on_delivery' | 'mobile_money' | 'card' | 'flutterwave'
 
 export interface Customer {
   first_name: string
@@ -125,7 +125,11 @@ export interface Order {
   total: number
   currency: string
   payment_method: PaymentMethod
-  payment_status: string
+  payment_  status: string
+  cash_on_delivery_enabled: boolean
+  flutterwave_enabled: boolean
+  flutterwave_configured: boolean
+  payment_methods: PaymentMethod[]
   customer: Customer
   items: OrderItem[]
   created_at: string
@@ -249,4 +253,49 @@ export interface CartItem {
   currency: string
   image_url: string | null
   quantity: number
+}
+
+export interface PlatformFeatures {
+  registration: boolean
+  shop_creation: boolean
+  ai_assistant: boolean
+  platform_chat: boolean
+  shop_chat: boolean
+  recommendations: boolean
+}
+
+/** Public platform settings from GET /platform. */
+export interface PlatformConfig {
+  platform: {
+    name: string
+    tagline: string | null
+    support_email: string | null
+    support_whatsapp: string | null
+    announcement: string | null
+  }
+  features: PlatformFeatures
+  payments: {
+    cash_on_delivery: boolean
+    online: boolean
+  }
+}
+
+export type PlatformSettingType = 'string' | 'text' | 'email' | 'boolean' | 'integer' | 'select'
+
+export interface PlatformSettingDefinition {
+  group: string
+  type: PlatformSettingType
+  label: string
+  help?: string
+  public: boolean
+  options?: Record<string, string>
+  min?: number
+  max?: number
+}
+
+/** Administration payload from GET /admin/settings; values are keyed by dotted name. */
+export interface PlatformSettingsPayload {
+  groups: Record<string, string>
+  definitions: Record<string, PlatformSettingDefinition>
+  values: Record<string, string | number | boolean | null>
 }

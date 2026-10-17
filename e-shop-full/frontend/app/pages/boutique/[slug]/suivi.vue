@@ -167,7 +167,7 @@ onMounted(() => {
           </div>
           <div class="d-flex justify-content-between text-muted pt-2">
             <dt class="fw-normal">Paiement</dt>
-            <dd class="mb-0">{{ paymentMethodLabel(order.payment_method) }}</dd>
+            <dd class="mb-0">{{ paymentMethodLabel(order.payment_method) }} · {{ paymentStatusLabel(order.payment_status) }}</dd>
           </div>
         </dl>
       </section>

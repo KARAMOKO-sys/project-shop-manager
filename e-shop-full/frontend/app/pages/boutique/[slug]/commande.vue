@@ -15,6 +15,7 @@ useSeoMeta({ title: () => `Commande — ${shop.value?.name ?? 'Boutique'}`, robo
 
 const customer = reactive({ first_name: '', last_name: '', email: '', phone: '' })
 const paymentMethod = ref<PaymentMethod>('cash_on_delivery')
+const paymentOptions = computed(() => PAYMENT_METHODS.filter(method => shop.value?.payment_methods.includes(method.value)))
 const couponCode = ref('')
 const errors = ref<Record<string, string>>({})
 const generalError = ref('')
@@ -38,6 +39,12 @@ const estimatedTotal = computed(() => Math.max(0, subtotal.value - discount.valu
 const trackingLink = computed(() => (order.value
   ? { path: `/boutique/${slug}/suivi`, query: { commande: order.value.order_number, email: order.value.customer.email } }
   : `/boutique/${slug}/suivi`))
+
+watch(paymentOptions, (methods) => {
+  if (!methods.some(method => method.value === paymentMethod.value)) {
+    paymentMethod.value = methods[0]?.value ?? 'cash_on_delivery'
+  }
+}, { immediate: true })
 
 /** Any cart change invalidates the computed discount: the customer must re-apply the code. */
 watch(items, () => {
@@ -97,7 +104,7 @@ async function submit(): Promise<void> {
   generalError.value = ''
 
   try {
-    const { data } = await api<Resource<Order>>(`/storefront/${slug}/checkout`, {
+    const { data, payment_url: paymentUrl } = await api<Resource<Order> & { payment_url?: string }>(`/storefront/${slug}/checkout`, {
       method: 'POST',
       body: {
         customer: { ...customer },
@@ -106,8 +113,23 @@ async function submit(): Promise<void> {
         payment_method: paymentMethod.value,
       },
     })
-    order.value = data
     appliedCoupon.value = null
+
+    if (data.payment_method === 'flutterwave') {
+      if (!paymentUrl) {
+        generalError.value = 'Le lien de paiement sécurisé n’a pas été reçu. Veuillez contacter la boutique avant de réessayer.'
+        toast.error(generalError.value)
+
+        return
+      }
+
+      clear()
+      window.location.assign(paymentUrl)
+
+      return
+    }
+
+    order.value = data
     clear()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -184,8 +206,9 @@ async function submit(): Promise<void> {
             </fieldset>
             <fieldset class="card p-4">
               <legend class="h5 fw-bold float-none mb-3">Mode de paiement</legend>
+              <p v-if="!paymentOptions.length" class="small text-muted mb-0">Aucun mode de paiement n’est actuellement disponible pour cette boutique.</p>
               <div class="d-grid gap-2">
-                <div v-for="method in PAYMENT_METHODS" :key="method.value">
+                <div v-for="method in paymentOptions" :key="method.value">
                   <input :id="`payment-${method.value}`" v-model="paymentMethod" type="radio" class="btn-check" name="payment_method" :value="method.value">
                   <label :for="`payment-${method.value}`" class="payment-option d-flex align-items-center gap-3 p-3 w-100">
                     <span class="icon-tile" aria-hidden="true"><i class="bi" :class="method.icon" /></span>
@@ -249,7 +272,7 @@ async function submit(): Promise<void> {
                 <PriceTag :amount="estimatedTotal" :currency="currency" />
               </div>
               <p class="small text-muted">Frais de livraison calculés à la validation.</p>
-              <button type="submit" class="btn btn-primary btn-lg w-100" :disabled="submitting">
+              <button type="submit" class="btn btn-primary btn-lg w-100" :disabled="submitting || !paymentOptions.length">
                 <span v-if="submitting" class="spinner-border spinner-border-sm me-2" aria-hidden="true" />
                 Valider ma commande
               </button>

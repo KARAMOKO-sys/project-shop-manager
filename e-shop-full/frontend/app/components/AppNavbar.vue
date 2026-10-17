@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { user, isAuthenticated, isAdmin, logout } = useAuth()
+const { config, features } = usePlatform()
 
 useCloseOnNavigate('#mainNav', 'Collapse')
 </script>
@@ -7,9 +8,8 @@ useCloseOnNavigate('#mainNav', 'Collapse')
 <template>
   <nav class="navbar navbar-expand-lg app-navbar sticky-top py-3" aria-label="Navigation principale">
     <div class="container">
-      <NuxtLink to="/" class="brand-logo" aria-label="ShopAI, accueil">
-        <span class="brand-mark" aria-hidden="true"><i class="bi bi-stars" /></span>
-        <span>Shop<span class="brand-ai">AI</span></span>
+      <NuxtLink to="/" class="brand-logo" :aria-label="`${config.platform.name}, accueil`">
+        <AppBrand />
       </NuxtLink>
       <button
         class="navbar-toggler border-0"
@@ -39,6 +39,7 @@ useCloseOnNavigate('#mainNav', 'Collapse')
               <ul class="dropdown-menu dropdown-menu-end">
                 <li><NuxtLink class="dropdown-item" to="/dashboard"><i class="bi bi-grid me-2" aria-hidden="true" />Tableau de bord</NuxtLink></li>
                 <li v-if="isAdmin"><NuxtLink class="dropdown-item" to="/admin/moderation"><i class="bi bi-shield-check me-2" aria-hidden="true" />Modération</NuxtLink></li>
+                <li v-if="isAdmin"><NuxtLink class="dropdown-item" to="/admin/parametres"><i class="bi bi-sliders me-2" aria-hidden="true" />Paramètres de la plateforme</NuxtLink></li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
                   <button type="button" class="dropdown-item" @click="logout">
@@ -49,7 +50,7 @@ useCloseOnNavigate('#mainNav', 'Collapse')
             </div>
           </template>
           <NuxtLink v-else to="/login" class="btn btn-light">Connexion</NuxtLink>
-          <NuxtLink to="/creer-ma-boutique" class="btn btn-primary">
+          <NuxtLink v-if="features.shop_creation" to="/creer-ma-boutique" class="btn btn-primary">
             Créer ma boutique
           </NuxtLink>
         </div>

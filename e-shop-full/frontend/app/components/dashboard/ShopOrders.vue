@@ -46,7 +46,7 @@ async function changeStatus(order: Order, next: OrderStatus): Promise<void> {
     </AppState>
     <AppState v-else-if="!orders?.data.length" icon="bi-receipt" title="Aucune commande pour l’instant" text="Partagez le lien de votre boutique sur WhatsApp et les réseaux sociaux pour recevoir vos premières commandes." />
     <div v-else class="table-responsive">
-      <table class="table align-middle mb-0">
+      <table class="table table-stack align-middle mb-0">
         <caption class="visually-hidden">Commandes de la boutique</caption>
         <thead class="table-light">
           <tr>
@@ -72,16 +72,16 @@ async function changeStatus(order: Order, next: OrderStatus): Promise<void> {
                 </button>
                 <p class="small text-muted mb-0">{{ formatDate(order.created_at) }}</p>
               </td>
-              <td>
+              <td data-label="Client">
                 <p class="mb-0">{{ order.customer.first_name }} {{ order.customer.last_name }}</p>
                 <a :href="`tel:${order.customer.phone}`" class="small">{{ order.customer.phone }}</a>
               </td>
-              <td class="text-nowrap"><PriceTag :amount="order.total" :currency="order.currency" /></td>
-              <td>
+              <td class="text-nowrap" data-label="Total"><PriceTag :amount="order.total" :currency="order.currency" /></td>
+              <td data-label="Paiement">
                 <p class="small mb-0">{{ paymentMethodLabel(order.payment_method) }}</p>
-                <span class="small text-muted">{{ order.payment_status }}</span>
+                <span class="small text-muted">{{ paymentStatusLabel(order.payment_status) }}</span>
               </td>
-              <td style="min-width: 11rem;">
+              <td class="order-status-cell" data-label="Statut">
                 <span v-if="!ORDER_TRANSITIONS[order.status]?.length" class="badge rounded-pill" :class="`text-bg-${orderStatusMeta(order.status).variant}`">
                   {{ orderStatusMeta(order.status).label }}
                 </span>

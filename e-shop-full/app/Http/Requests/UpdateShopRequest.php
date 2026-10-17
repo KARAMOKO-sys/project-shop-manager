@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Shop;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateShopRequest extends FormRequest
 {
@@ -31,7 +33,45 @@ class UpdateShopRequest extends FormRequest
             'currency' => ['sometimes', 'required', 'string', Rule::in(['XOF', 'XAF', 'EUR', 'USD', 'GNF', 'CDF', 'MAD'])],
             'logo_url' => ['nullable', 'url', 'max:2048'],
             'status' => ['sometimes', 'required', Rule::in(['active', 'inactive'])],
+            'flutterwave_secret_key' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'flutterwave_webhook_secret_hash' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'flutterwave_enabled' => ['sometimes', 'boolean'],
+            'cash_on_delivery_enabled' => ['sometimes', 'boolean'],
             ...self::themeRules(),
+        ];
+    }
+
+    /**
+     * @return array<int, \Closure(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if ($validator->errors()->hasAny(['flutterwave_secret_key', 'flutterwave_webhook_secret_hash', 'flutterwave_enabled'])) {
+                    return;
+                }
+
+                $shop = $this->route('shop');
+
+                if (! $shop instanceof Shop) {
+                    return;
+                }
+
+                $enabled = $this->has('flutterwave_enabled')
+                    ? $this->boolean('flutterwave_enabled')
+                    : $shop->flutterwave_enabled;
+                $secretKey = filled($this->input('flutterwave_secret_key'))
+                    ? $this->input('flutterwave_secret_key')
+                    : $shop->flutterwave_secret_key;
+                $webhookSecret = filled($this->input('flutterwave_webhook_secret_hash'))
+                    ? $this->input('flutterwave_webhook_secret_hash')
+                    : $shop->flutterwave_webhook_secret_hash;
+
+                if ($enabled && (blank($secretKey) || blank($webhookSecret))) {
+                    $validator->errors()->add('flutterwave_secret_key', 'Renseignez la clé secrète et le secret webhook avant d’activer Flutterwave.');
+                }
+            },
         ];
     }
 

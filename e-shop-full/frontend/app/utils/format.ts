@@ -90,10 +90,26 @@ export function orderStatusMeta(status: string) {
 
 export const PAYMENT_METHODS: { value: PaymentMethod, label: string, description: string, icon: string }[] = [
   { value: 'cash_on_delivery', label: 'Paiement à la livraison', description: 'Réglez en espèces à la réception de votre commande.', icon: 'bi-cash-coin' },
-  { value: 'mobile_money', label: 'Mobile Money', description: 'Orange Money, MTN MoMo, Wave, Moov Money…', icon: 'bi-phone' },
-  { value: 'card', label: 'Carte bancaire', description: 'Visa, Mastercard — paiement sécurisé.', icon: 'bi-credit-card' },
+  { value: 'flutterwave', label: 'Carte ou Mobile Money', description: 'Paiement sécurisé par les moyens proposés pour votre pays.', icon: 'bi-shield-lock' },
 ]
 
 export function paymentMethodLabel(method: string): string {
+  if (method === 'mobile_money') {
+    return 'Mobile Money'
+  }
+
+  if (method === 'card') {
+    return 'Carte bancaire'
+  }
+
   return PAYMENT_METHODS.find(item => item.value === method)?.label ?? method
+}
+
+export function paymentStatusLabel(status: string): string {
+  return ({
+    pending: 'En attente',
+    paid: 'Payé',
+    failed: 'Échoué',
+    refunded: 'Remboursé',
+  } as Record<string, string>)[status] ?? status
 }

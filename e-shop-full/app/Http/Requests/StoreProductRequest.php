@@ -3,9 +3,11 @@
 namespace App\Http\Requests;
 
 use App\Enums\ProductStatus;
+use App\Services\PlatformSettings;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreProductRequest extends FormRequest
 {
@@ -38,6 +40,26 @@ class StoreProductRequest extends FormRequest
             'tags.*' => ['string', 'max:40'],
             'status' => ['nullable', Rule::enum(ProductStatus::class)],
             'is_featured' => ['nullable', 'boolean'],
+        ];
+    }
+
+    /**
+     * @return array<int, \Closure(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if ($this->route('product') !== null) {
+                    return;
+                }
+
+                $limit = (int) app(PlatformSettings::class)->get('limits.max_products_per_shop');
+
+                if ($limit > 0 && $this->route('shop')->products()->count() >= $limit) {
+                    $validator->errors()->add('name', "Cette boutique a atteint le nombre maximum de produits autorisé ({$limit}).");
+                }
+            },
         ];
     }
 }

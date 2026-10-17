@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Shop;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -115,6 +116,56 @@ class ShopControllerTest extends TestCase
         $this->putJson("/api/v1/shops/{$shop->id}", ['theme' => ['primary' => 'red; background:url(x)']])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('theme.primary');
+    }
+
+    public function test_update_encrypts_flutterwave_credentials_and_never_returns_them(): void
+    {
+        $user = Sanctum::actingAs(User::factory()->create());
+        $shop = Shop::factory()->for($user, 'owner')->create();
+        $secretKey = 'FLWSECK_TEST-merchant-secret';
+        $webhookSecret = 'merchant-webhook-secret';
+
+        $response = $this->putJson("/api/v1/shops/{$shop->id}", [
+            'flutterwave_secret_key' => $secretKey,
+            'flutterwave_webhook_secret_hash' => $webhookSecret,
+            'flutterwave_enabled' => true,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.flutterwave_configured', true)
+            ->assertJsonPath('data.flutterwave_enabled', true)
+            ->assertJsonPath('data.payment_methods', ['cash_on_delivery', 'flutterwave']);
+
+        $this->assertNotSame($secretKey, DB::table('shops')->where('id', $shop->id)->value('flutterwave_secret_key'));
+        $this->assertNotSame($webhookSecret, DB::table('shops')->where('id', $shop->id)->value('flutterwave_webhook_secret_hash'));
+        $this->assertSame($secretKey, $shop->fresh()->flutterwave_secret_key);
+        $this->assertSame($webhookSecret, $shop->fresh()->flutterwave_webhook_secret_hash);
+        $this->assertStringNotContainsString($secretKey, $response->getContent());
+        $this->assertStringNotContainsString($webhookSecret, $response->getContent());
+    }
+
+    public function test_update_rejects_enabling_flutterwave_without_both_credentials_with_422(): void
+    {
+        $user = Sanctum::actingAs(User::factory()->create());
+        $shop = Shop::factory()->for($user, 'owner')->create();
+
+        $this->putJson("/api/v1/shops/{$shop->id}", ['flutterwave_enabled' => true])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('flutterwave_secret_key');
+    }
+
+    public function test_update_forbids_another_merchant_from_changing_flutterwave_credentials(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+        $shop = Shop::factory()->create();
+
+        $this->putJson("/api/v1/shops/{$shop->id}", [
+            'flutterwave_secret_key' => 'FLWSECK_TEST-merchant-secret',
+            'flutterwave_webhook_secret_hash' => 'merchant-webhook-secret',
+            'flutterwave_enabled' => true,
+        ])->assertForbidden();
+
+        $this->assertNull($shop->fresh()->flutterwave_secret_key);
     }
 
     public function test_changing_template_resets_theme_overrides(): void

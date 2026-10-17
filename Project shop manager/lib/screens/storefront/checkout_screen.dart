@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/format.dart';
 import '../../app/navigation.dart';
@@ -32,10 +34,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   late final ShopCart _cart = context.cart;
   Shop? _shop;
   PaymentMethod _paymentMethod = PaymentMethod.cashOnDelivery;
+  bool _loadingShop = true;
+  String? _shopError;
   Map<String, String> _errors = const {};
   String? _generalError;
   bool _submitting = false;
   Order? _order;
+  String? _paymentUrl;
 
   CouponCheck? _coupon;
   String? _couponError;
@@ -46,9 +51,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     _cart.addListener(_onCartChanged);
-    context.api.getStorefront(widget.shopSlug).then((shop) {
-      if (mounted) setState(() => _shop = shop);
-    }).catchError((Object _) {});
+    _loadShop();
+  }
+
+  Future<void> _loadShop() async {
+    setState(() {
+      _loadingShop = true;
+      _shopError = null;
+    });
+    try {
+      final shop = await context.api.getStorefront(widget.shopSlug);
+      if (!mounted) return;
+      setState(() {
+        _shop = shop;
+        final available = PaymentMethod.values
+            .where((method) => shop.paymentMethods.contains(method.value))
+            .toList();
+        if (!available.contains(_paymentMethod) && available.isNotEmpty) {
+          _paymentMethod = available.first;
+        }
+      });
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _shopError = error.message);
+    } finally {
+      if (mounted) setState(() => _loadingShop = false);
+    }
   }
 
   @override
@@ -61,6 +88,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   double get _subtotal => _cart.subtotalForShop(widget.shopSlug);
+  List<PaymentMethod> get _availablePaymentMethods => PaymentMethod.values
+      .where((method) => _shop?.paymentMethods.contains(method.value) ?? false)
+      .toList();
 
   /// Any cart change invalidates the computed discount: the customer must re-apply the code.
   void _onCartChanged() {
@@ -124,7 +154,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _generalError = null;
     });
     try {
-      final order = await context.api.checkout(
+      final result = await context.api.checkout(
         shopSlug: widget.shopSlug,
         customer: {
           'first_name': _firstName.text.trim(),
@@ -139,8 +169,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       if (!mounted) return;
       cart.removeListener(_onCartChanged);
-      setState(() => _order = order);
+      final paymentUrl = _validatedPaymentUrl(result.paymentUrl);
+      setState(() {
+        _order = result.order;
+        _paymentUrl = paymentUrl;
+        if (result.order.paymentMethod == PaymentMethod.flutterwave.value && paymentUrl == null) {
+          _generalError =
+              'La commande est créée, mais le lien de paiement est indisponible. Contactez la boutique avec votre numéro de commande.';
+        }
+      });
       await cart.clearShop(widget.shopSlug);
+      if (paymentUrl != null) await _openPaymentLink();
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -164,6 +203,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _form() {
+    if (_loadingShop) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_shopError != null || _shop == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Finaliser la commande')),
+        body: MessageState(
+          icon: Icons.wifi_off_outlined,
+          title: 'Boutique indisponible',
+          message: _shopError ?? 'Les informations de paiement n’ont pas pu être chargées.',
+          action: ElevatedButton(onPressed: _loadShop, child: const Text('Réessayer')),
+        ),
+      );
+    }
     final cart = context.cart;
     final items = cart.itemsForShop(widget.shopSlug);
     final accent = _shop?.theme.primary ?? forest;
@@ -225,10 +278,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   FormSection(
                     title: 'Mode de paiement',
                     children: [
-                      for (final method in PaymentMethod.values)
+                      for (final method in _availablePaymentMethods)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: _paymentOption(method, accent),
+                        ),
+                      if (_availablePaymentMethods.isEmpty)
+                        const Text(
+                          'Aucun moyen de paiement n’est actuellement activé pour cette boutique.',
+                          style: TextStyle(color: muted),
                         ),
                     ],
                   ),
@@ -266,7 +324,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     label: 'Confirmer la commande · ${formatPrice(total, currency)}',
                     icon: Icons.lock_outline,
                     loading: _submitting,
-                    onPressed: _submit,
+                    onPressed: _availablePaymentMethods.isEmpty ? null : _submit,
                   ),
                   const SizedBox(height: 10),
                   const Text(
@@ -397,10 +455,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Future<void> _copyPaymentLink() async {
+    final paymentUrl = _paymentUrl;
+    if (paymentUrl == null) return;
+    await Clipboard.setData(ClipboardData(text: paymentUrl));
+    if (mounted) showToast(context, 'Lien de paiement copié. Ouvrez-le dans votre navigateur.');
+  }
+
+  Future<void> _openPaymentLink() async {
+    final paymentUrl = _paymentUrl;
+    if (paymentUrl == null) return;
+    try {
+      final launched = await launchUrl(
+        Uri.parse(paymentUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        setState(() => _generalError = 'Le paiement n’a pas pu s’ouvrir. Copiez le lien pour continuer dans votre navigateur.');
+      }
+    } on PlatformException {
+      if (mounted) {
+        setState(() => _generalError = 'Le paiement n’a pas pu s’ouvrir. Copiez le lien pour continuer dans votre navigateur.');
+      }
+    } on MissingPluginException {
+      if (mounted) {
+        setState(() => _generalError = 'Le paiement n’a pas pu s’ouvrir. Copiez le lien pour continuer dans votre navigateur.');
+      }
+    }
+  }
+
   Widget _confirmation(Order order) {
     final accent = _shop?.theme.primary ?? forest;
     return Scaffold(
-      appBar: AppBar(automaticallyImplyLeading: false, title: const Text('Commande confirmée')),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: Text(order.paymentMethod == PaymentMethod.flutterwave.value
+            ? 'Paiement en attente'
+            : 'Commande confirmée'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(22),
         children: [
@@ -410,17 +502,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               width: 80,
               height: 80,
               decoration: const BoxDecoration(color: successSoft, shape: BoxShape.circle),
-              child: const Icon(Icons.check_circle_outline, color: success, size: 44),
+              child: Icon(
+                order.paymentMethod == PaymentMethod.flutterwave.value
+                    ? Icons.pending_outlined
+                    : Icons.check_circle_outline,
+                color: order.paymentMethod == PaymentMethod.flutterwave.value ? goldInk : success,
+                size: 44,
+              ),
             ),
           ),
           const SizedBox(height: 18),
-          Text('Merci pour votre commande !', textAlign: TextAlign.center, style: headingStyle(fontSize: 25)),
+          Text(
+            order.paymentMethod == PaymentMethod.flutterwave.value
+                ? 'Votre commande est enregistrée.'
+                : 'Merci pour votre commande !',
+            textAlign: TextAlign.center,
+            style: headingStyle(fontSize: 25),
+          ),
           const SizedBox(height: 8),
           Text(
-            'Un récapitulatif a été envoyé à ${order.customer.email}.',
+            order.paymentMethod == PaymentMethod.flutterwave.value
+                ? 'Terminez le paiement sécurisé pour confirmer votre commande.'
+                : 'Un récapitulatif a été envoyé à ${order.customer.email}.',
             textAlign: TextAlign.center,
             style: const TextStyle(color: muted),
           ),
+          if (_generalError != null) ...[
+            const SizedBox(height: 14),
+            NoticeBanner(message: _generalError!),
+          ],
+          if (_paymentUrl != null) ...[
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: _openPaymentLink,
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Ouvrir le paiement'),
+            ),
+            TextButton.icon(
+              onPressed: _copyPaymentLink,
+              icon: const Icon(Icons.copy_outlined),
+              label: const Text('Copier le lien de paiement'),
+            ),
+          ],
           const SizedBox(height: 20),
           Card(
             child: Padding(
@@ -437,7 +560,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   InfoRow(label: 'Livraison', value: formatPrice(order.shippingAmount, order.currency)),
                   InfoRow(label: 'Total', value: formatPrice(order.total, order.currency), bold: true),
                   InfoRow(label: 'Paiement', value: PaymentMethod.labelOf(order.paymentMethod)),
-                  InfoRow(label: 'Statut', value: order.status.label),
+                  InfoRow(
+                    label: 'Statut du paiement',
+                    value: order.paymentStatus == 'paid' ? 'Payé' : 'En attente',
+                  ),
+                  InfoRow(label: 'Statut de la commande', value: order.status.label),
                 ],
               ),
             ),
@@ -460,4 +587,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ),
     );
   }
+}
+
+String? _validatedPaymentUrl(String? value) {
+  final uri = value == null ? null : Uri.tryParse(value);
+  if (uri == null ||
+      uri.scheme != 'https' ||
+      uri.userInfo.isNotEmpty ||
+      !(uri.host == 'flutterwave.com' || uri.host.endsWith('.flutterwave.com'))) {
+    return null;
+  }
+  return uri.toString();
 }

@@ -10,6 +10,8 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\Shop;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -26,7 +28,7 @@ class StorefrontControllerTest extends TestCase
         return [
             'customer' => ['first_name' => 'Fatou', 'last_name' => 'Sow', 'email' => 'fatou@example.com', 'phone' => '+221770000000'],
             'items' => $items,
-            'payment_method' => 'mobile_money',
+            'payment_method' => 'cash_on_delivery',
             ...$overrides,
         ];
     }
@@ -71,9 +73,105 @@ class StorefrontControllerTest extends TestCase
             ->assertJsonPath('data.total', 9000)
             ->assertJsonPath('data.status', 'received')
             ->assertJsonPath('data.payment_status', 'pending')
-            ->assertJsonPath('data.payment_method', 'mobile_money');
+            ->assertJsonPath('data.payment_method', 'cash_on_delivery');
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock_quantity' => 3]);
         $this->assertDatabaseHas('customers', ['shop_id' => $shop->id, 'email' => 'fatou@example.com']);
+    }
+
+    public function test_checkout_rejects_online_payment_when_flutterwave_is_not_configured(): void
+    {
+        $shop = Shop::factory()->create();
+        $product = Product::factory()->for($shop)->create();
+
+        $this->postJson("/api/v1/storefront/{$shop->slug}/checkout", $this->checkoutPayload(
+            [['product_id' => $product->id, 'quantity' => 1]],
+            ['payment_method' => 'flutterwave'],
+        ))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('payment_method');
+
+        $this->assertDatabaseCount('orders', 0);
+    }
+
+    public function test_checkout_creates_flutterwave_session_and_returns_its_hosted_payment_url(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'api.flutterwave.com/v3/payments' => Http::response([
+                'status' => 'success',
+                'data' => ['link' => 'https://checkout.flutterwave.com/v3/hosted/pay/test-session'],
+            ]),
+        ]);
+        Mail::fake();
+
+        $shop = Shop::factory()->create([
+            'flutterwave_secret_key' => 'FLWSECK_TEST-merchant-secret',
+            'flutterwave_webhook_secret_hash' => 'merchant-webhook-secret',
+            'flutterwave_enabled' => true,
+        ]);
+        $product = Product::factory()->for($shop)->create(['price' => 4500, 'stock_quantity' => 5]);
+
+        $response = $this->postJson("/api/v1/storefront/{$shop->slug}/checkout", $this->checkoutPayload(
+            [['product_id' => $product->id, 'quantity' => 2]],
+            ['payment_method' => 'flutterwave'],
+        ));
+
+        $response->assertCreated()
+            ->assertJsonPath('data.payment_method', 'flutterwave')
+            ->assertJsonPath('payment_url', 'https://checkout.flutterwave.com/v3/hosted/pay/test-session');
+
+        $this->assertDatabaseHas('payments', [
+            'order_id' => $response->json('data.id'),
+            'provider' => 'flutterwave',
+            'status' => 'pending',
+            'amount' => 9000,
+            'currency' => 'XOF',
+        ]);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock_quantity' => 3]);
+        $this->assertStringNotContainsString('merchant-secret', $response->getContent());
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.flutterwave.com/v3/payments'
+            && $request->hasHeader('Authorization', 'Bearer FLWSECK_TEST-merchant-secret')
+            && $request->data()['tx_ref'] === $response->json('data.order_number')
+            && $request->data()['amount'] === 9000.0
+            && $request->data()['currency'] === 'XOF');
+    }
+
+    public function test_checkout_cancels_order_and_releases_stock_when_flutterwave_rejects_payment(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'api.flutterwave.com/v3/payments' => Http::response(['message' => 'Unavailable'], 503),
+        ]);
+        Mail::fake();
+
+        $shop = Shop::factory()->create([
+            'flutterwave_secret_key' => 'FLWSECK_TEST-merchant-secret',
+            'flutterwave_webhook_secret_hash' => 'merchant-webhook-secret',
+            'flutterwave_enabled' => true,
+        ]);
+        $product = Product::factory()->for($shop)->create(['stock_quantity' => 2]);
+        $coupon = Coupon::create([
+            'shop_id' => $shop->id,
+            'code' => 'PAYMENTFAIL',
+            'type' => 'percentage',
+            'value' => 10,
+            'usage_limit' => 0,
+            'status' => 'active',
+        ]);
+
+        $response = $this->postJson("/api/v1/storefront/{$shop->slug}/checkout", $this->checkoutPayload(
+            [['product_id' => $product->id, 'quantity' => 1]],
+            ['payment_method' => 'flutterwave', 'coupon_code' => $coupon->code],
+        ));
+
+        $response->assertStatus(502)
+            ->assertJsonPath('message', 'Le paiement en ligne est temporairement indisponible. La commande a été annulée ; vous pouvez réessayer.');
+
+        $this->assertDatabaseHas('orders', ['status' => 'cancelled', 'payment_status' => 'failed']);
+        $this->assertDatabaseHas('payments', ['provider' => 'flutterwave', 'status' => 'failed']);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock_quantity' => 2]);
+        $this->assertSame(0, $coupon->refresh()->times_used);
     }
 
     public function test_checkout_rejects_quantity_above_stock_with_422(): void

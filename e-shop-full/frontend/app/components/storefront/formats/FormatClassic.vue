@@ -58,7 +58,7 @@ const heroStyle = computed(() => (props.theme.hero_style === 'image' && props.sh
             <ProductCard :product="product" :shop-slug="shop.slug" :color="theme.primary" addable @add="emit('add', $event)" />
           </div>
         </div>
-        <div v-else class="row g-4" :class="theme.layout === 'list' ? 'row-cols-1 row-cols-lg-2' : 'row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4'">
+        <div v-else class="row g-3 g-md-4" :class="theme.layout === 'list' ? 'row-cols-1 row-cols-lg-2' : 'row-cols-2 row-cols-md-3 row-cols-xl-4'">
           <div v-for="product in products" :key="product.id" class="col">
             <ProductCard :product="product" :shop-slug="shop.slug" :layout="theme.layout" :color="theme.primary" addable @add="emit('add', $event)" />
           </div>

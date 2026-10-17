@@ -118,7 +118,7 @@ class ApiService {
         ),
       );
 
-  Future<Order> checkout({
+  Future<CheckoutResult> checkout({
     required String shopSlug,
     required Map<String, String> customer,
     required List<Map<String, int>> items,
@@ -137,7 +137,10 @@ class ApiService {
         if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
       },
     );
-    return Order.fromJson(_data(json));
+    return CheckoutResult(
+      order: Order.fromJson(_data(json)),
+      paymentUrl: json['payment_url'] is String ? json['payment_url'] as String : null,
+    );
   }
 
   Future<ChatReply> shopChat(String slug, String message, List<ChatTurn> history) async =>
@@ -389,7 +392,7 @@ class ApiService {
     Map<String, dynamic> decoded = const {};
     if (response.body.isNotEmpty) {
       try {
-        final json = jsonDecode(utf8.decode(response.bodyBytes));
+        final json = jsonDecode(_decodeBody(response));
         if (json is Map<String, dynamic>) decoded = json;
       } on FormatException {
         if (response.statusCode < 300) {
@@ -404,6 +407,15 @@ class ApiService {
       onUnauthorized?.call();
     }
     throw _error(decoded, response.statusCode);
+  }
+
+  /// UTF-8 first (Laravel often omits the charset), else the declared/latin1 decoding.
+  String _decodeBody(http.Response response) {
+    try {
+      return utf8.decode(response.bodyBytes);
+    } on FormatException {
+      return response.body;
+    }
   }
 
   ApiException _error(Map<String, dynamic> json, int statusCode) {
@@ -425,6 +437,7 @@ class ApiService {
       403 => 'Vous n’avez pas accès à cette ressource.',
       404 => 'Élément introuvable.',
       429 => 'Trop de tentatives. Patientez une minute avant de réessayer.',
+      502 when serverMessage.isNotEmpty => serverMessage,
       >= 500 => 'Le serveur a rencontré une erreur. Réessayez plus tard.',
       _ when serverMessage.isNotEmpty => serverMessage,
       _ => 'Une erreur est survenue (HTTP $statusCode).',

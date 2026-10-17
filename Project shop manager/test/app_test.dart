@@ -11,7 +11,11 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Map<String, dynamic> productJson({int id = 1, int stock = 5, double price = 4500}) => {
+Map<String, dynamic> productJson({
+  int id = 1,
+  int stock = 5,
+  double price = 4500,
+}) => {
   'id': id,
   'shop_id': 3,
   'shop': {'id': 3, 'name': 'Maison Adjoa', 'slug': 'maison-adjoa'},
@@ -29,7 +33,14 @@ Map<String, dynamic> productJson({int id = 1, int stock = 5, double price = 4500
   'is_featured': true,
   'image_url': 'http://localhost:8000/storage/shops/3/wax.jpg',
   'tags': ['wax', 'mode'],
-  'moderation': {'status': 'approved', 'risk_score': 4, 'reasons': [], 'note': null, 'checked_at': null, 'engine': 'local'},
+  'moderation': {
+    'status': 'approved',
+    'risk_score': 4,
+    'reasons': [],
+    'note': null,
+    'checked_at': null,
+    'engine': 'local',
+  },
   'is_public': true,
   'created_at': '2026-10-06T10:00:00.000000Z',
 };
@@ -51,13 +62,19 @@ void main() {
   group('resolveMediaUrl', () {
     test('rewrites loopback storage URLs to the API host', () {
       expect(
-        resolveMediaUrl('http://localhost:8000/storage/a.jpg', baseUrl: 'http://10.0.2.2:8000/api/v1'),
+        resolveMediaUrl(
+          'http://localhost:8000/storage/a.jpg',
+          baseUrl: 'http://10.0.2.2:8000/api/v1',
+        ),
         'http://10.0.2.2:8000/storage/a.jpg',
       );
     });
 
     test('keeps public URLs untouched', () {
-      expect(resolveMediaUrl('https://cdn.example.com/a.jpg'), 'https://cdn.example.com/a.jpg');
+      expect(
+        resolveMediaUrl('https://cdn.example.com/a.jpg'),
+        'https://cdn.example.com/a.jpg',
+      );
       expect(resolveMediaUrl(''), isNull);
     });
   });
@@ -72,8 +89,35 @@ void main() {
       expect(product.imageUrl, startsWith('http://10.0.2.2:8000/'));
     });
 
+    test('parses shop payment methods exposed by the API', () {
+      final shop = Shop.fromJson({
+        'id': 3,
+        'name': 'Maison Adjoa',
+        'slug': 'maison-adjoa',
+        'template': 'minimal',
+        'theme': {},
+        'currency': 'XOF',
+        'status': 'active',
+        'cash_on_delivery_enabled': false,
+        'flutterwave_enabled': true,
+        'flutterwave_configured': true,
+        'payment_methods': ['flutterwave'],
+        'categories': [],
+        'url': 'https://shop.example/boutique/maison-adjoa',
+      });
+      expect(shop.paymentMethods, ['flutterwave']);
+      expect(shop.cashOnDeliveryEnabled, isFalse);
+      expect(shop.flutterwaveEnabled, isTrue);
+      expect(shop.flutterwaveConfigured, isTrue);
+    });
+
     test('parses a shop theme with fallbacks', () {
-      final theme = ShopTheme.fromJson({'primary': '#123456', 'radius': '1rem', 'format': 'menu', 'font': 'Comic'});
+      final theme = ShopTheme.fromJson({
+        'primary': '#123456',
+        'radius': '1rem',
+        'format': 'menu',
+        'font': 'Comic',
+      });
       expect(theme.primary, const Color(0xFF123456));
       expect(theme.radius, 16);
       expect(theme.format, ShopFormat.menu);
@@ -83,7 +127,11 @@ void main() {
     });
 
     test('order status transitions mirror the backend', () {
-      expect(OrderStatus.received.transitions, [OrderStatus.paid, OrderStatus.processing, OrderStatus.cancelled]);
+      expect(OrderStatus.received.transitions, [
+        OrderStatus.paid,
+        OrderStatus.processing,
+        OrderStatus.cancelled,
+      ]);
       expect(OrderStatus.delivered.transitions, isEmpty);
     });
 
@@ -115,7 +163,9 @@ void main() {
                 'pending_moderation': 1,
                 'orders_by_status': {'delivered': 2},
                 'low_stock_products': [],
-                'revenue_by_day': [{'date': '2026-10-06', 'revenue': 9000, 'orders': 2}],
+                'revenue_by_day': [
+                  {'date': '2026-10-06', 'revenue': 9000, 'orders': 2},
+                ],
               },
             }),
             200,
@@ -146,21 +196,118 @@ void main() {
         ),
       );
       final error = await api
-          .checkout(shopSlug: 'maison-adjoa', customer: const {}, items: const [], paymentMethod: 'card')
-          .then<ApiException?>((_) => null, onError: (Object error) => error as ApiException);
+          .checkout(
+            shopSlug: 'maison-adjoa',
+            customer: const {},
+            items: const [],
+            paymentMethod: 'card',
+          )
+          .then<ApiException?>(
+            (_) => null,
+            onError: (Object error) => error as ApiException,
+          );
       expect(error!.isValidation, isTrue);
       expect(error.fieldError('customer.email'), 'Adresse e-mail invalide.');
       expect(error.fieldError('items'), 'Stock insuffisant.');
     });
 
+    test(
+      'parses the hosted payment URL returned by Flutterwave checkout',
+      () async {
+        late http.Request sent;
+        final api = ApiService(
+          baseUrl: 'http://api.test/api/v1',
+          client: MockClient((request) async {
+            sent = request;
+            return http.Response(
+              jsonEncode({
+                'data': {
+                  'id': 14,
+                  'order_number': 'CMD-20261017-0014',
+                  'status': 'received',
+                  'subtotal': 4500,
+                  'shipping_amount': 0,
+                  'discount_amount': 0,
+                  'total': 4500,
+                  'currency': 'XOF',
+                  'payment_method': 'flutterwave',
+                  'payment_status': 'pending',
+                  'customer': {
+                    'first_name': 'Awa',
+                    'last_name': 'Diallo',
+                    'email': 'awa@example.com',
+                    'phone': null,
+                  },
+                  'items': [],
+                  'created_at': '2026-10-17T04:00:00Z',
+                },
+                'payment_url':
+                    'https://checkout.flutterwave.com/v3/hosted/pay/session',
+              }),
+              201,
+            );
+          }),
+        );
+
+        final result = await api.checkout(
+          shopSlug: 'maison-adjoa',
+          customer: const {'first_name': 'Awa'},
+          items: const [
+            {'product_id': 7, 'quantity': 1},
+          ],
+          paymentMethod: PaymentMethod.flutterwave.value,
+        );
+
+        expect(sent.url.path, '/api/v1/storefront/maison-adjoa/checkout');
+        expect(jsonDecode(sent.body)['payment_method'], 'flutterwave');
+        expect(result.order.orderNumber, 'CMD-20261017-0014');
+        expect(
+          result.paymentUrl,
+          'https://checkout.flutterwave.com/v3/hosted/pay/session',
+        );
+      },
+    );
+
+    test(
+      'shows the backend payment failure message on a 502 response',
+      () async {
+        const message =
+            'Le paiement en ligne est temporairement indisponible. Réessayez.';
+        final api = ApiService(
+          baseUrl: 'http://api.test/api/v1',
+          client: MockClient(
+            (_) async => http.Response(jsonEncode({'message': message}), 502),
+          ),
+        );
+
+        final error = await api
+            .checkout(
+              shopSlug: 'maison-adjoa',
+              customer: const {},
+              items: const [],
+              paymentMethod: PaymentMethod.flutterwave.value,
+            )
+            .then<ApiException?>(
+              (_) => null,
+              onError: (Object error) => error as ApiException,
+            );
+
+        expect(error?.message, message);
+      },
+    );
+
     test('notifies the session on 401 for authenticated calls', () async {
       var expired = false;
-      final api = ApiService(
-        baseUrl: 'http://api.test/api/v1',
-        client: MockClient((_) async => http.Response('{"message":"Unauthenticated."}', 401)),
-      )
-        ..token = 'old'
-        ..onUnauthorized = () => expired = true;
+      final api =
+          ApiService(
+              baseUrl: 'http://api.test/api/v1',
+              client: MockClient(
+                (_) async =>
+                    http.Response('{"message":"Unauthenticated."}', 401),
+              ),
+            )
+            ..token = 'old'
+            ..onUnauthorized = () => expired = true;
       await expectLater(api.getMyShops(), throwsA(isA<ApiException>()));
       expect(expired, isTrue);
     });

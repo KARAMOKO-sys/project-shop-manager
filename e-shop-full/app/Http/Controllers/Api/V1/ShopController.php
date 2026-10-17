@@ -41,6 +41,12 @@ class ShopController extends Controller
     {
         $data = $request->validated();
 
+        foreach (['flutterwave_secret_key', 'flutterwave_webhook_secret_hash'] as $secret) {
+            if (blank($data[$secret] ?? null)) {
+                unset($data[$secret]);
+            }
+        }
+
         if (array_key_exists('theme', $data)) {
             $data['theme'] = $data['theme'] === null ? null : array_merge($shop->theme ?? [], $data['theme']);
         }

@@ -14,7 +14,8 @@ const requestedTemplate = typeof route.query.modele === 'string' ? route.query.m
 const STEP_LABELS = ['Votre activité', 'Votre boutique', 'Votre style']
 const DETAILS_FIELDS = ['name', 'tagline', 'description', 'sector', 'categories']
 
-const step = ref(1)
+const { features } = usePlatform()
+const step = ref(features.value.ai_assistant ? 1 : 2)
 const prompt = ref('')
 const aiLoading = ref(false)
 const aiError = ref('')
@@ -184,7 +185,11 @@ async function submit(): Promise<void> {
       </ol>
     </div>
 
-    <div v-if="step === 1" class="card ai-card p-4 p-md-5">
+    <div v-if="!features.shop_creation" class="alert alert-warning" role="alert">
+      <i class="bi bi-pause-circle me-1" aria-hidden="true" />La création de nouvelles boutiques est momentanément suspendue. Réessayez plus tard.
+    </div>
+
+    <div v-else-if="step === 1" class="card ai-card p-4 p-md-5">
       <span class="icon-tile is-gold mb-3" aria-hidden="true"><i class="bi bi-magic" /></span>
       <label for="setup-prompt" class="h3 d-block">Décrivez votre activité en une phrase</label>
       <p id="setup-prompt-help" class="text-muted">L’IA vous propose un nom, un slogan, des catégories et le modèle idéal.</p>

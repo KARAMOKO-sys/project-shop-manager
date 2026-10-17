@@ -49,11 +49,11 @@ const statusRows = computed(() => {
       <button type="button" class="btn btn-primary" @click="refresh()">Réessayer</button>
     </AppState>
     <template v-else>
-      <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-3 mb-4">
+      <div class="row row-cols-2 row-cols-xl-3 g-2 g-sm-3 mb-4">
         <div v-for="kpi in kpis" :key="kpi.label" class="col">
-          <div class="card kpi-card h-100 p-4 d-flex flex-row align-items-center gap-3">
+          <div class="card kpi-card h-100 p-3 p-md-4 d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2 gap-md-3">
             <span class="icon-tile" :class="{ 'is-gold': kpi.highlight }" aria-hidden="true"><i class="bi" :class="kpi.icon" /></span>
-            <div>
+            <div class="min-w-0">
               <p class="small text-muted mb-1 fw-medium">{{ kpi.label }}</p>
               <p class="kpi-value mb-0">{{ kpi.value }}</p>
             </div>
