@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import type { Resource, Shop } from '~/types'
 
-definePageMeta({ layout: 'dashboard', middleware: 'auth' })
+definePageMeta({
+  layout: 'dashboard',
+  middleware: [
+    'auth',
+    // Moderator accounts have no shops: their home is the moderation queue.
+    () => {
+      if (useAuthUser().value?.role === 'moderator') {
+        return navigateTo('/admin/moderation', { replace: true })
+      }
+    },
+  ],
+})
 useSeoMeta({ title: 'Mes boutiques' })
 
 const api = useApi()

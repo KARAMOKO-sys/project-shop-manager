@@ -22,7 +22,10 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
-            'is_admin' => $this->is_admin,
+            'role' => $this->role,
+            'role_label' => $this->role->label(),
+            'is_admin' => $this->isSuperAdmin(),
+            'can_moderate' => $this->canModerate(),
         ];
     }
 }

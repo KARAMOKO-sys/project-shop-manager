@@ -71,4 +71,13 @@ class ChatControllerTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('history.0.role');
     }
+
+    public function test_shop_chat_answers_delivery_questions_from_the_shop_settings(): void
+    {
+        $shop = Shop::factory()->create(['delivery_fee' => 1500, 'delivery_delay' => '24 à 48 h', 'pickup_enabled' => true, 'pickup_address' => 'Marché de Cocody']);
+
+        $this->postJson("/api/v1/storefront/{$shop->slug}/chat", ['message' => 'Quels sont vos délais de livraison ?'])
+            ->assertOk()
+            ->assertJsonPath('data.reply', fn (string $reply): bool => str_contains($reply, '1 500') && str_contains($reply, '24 à 48 h') && str_contains($reply, 'Marché de Cocody'));
+    }
 }

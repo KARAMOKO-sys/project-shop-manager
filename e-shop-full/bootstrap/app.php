@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureFeatureIsEnabled;
+use App\Http\Middleware\EnsureModuleIsInstalled;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'feature' => EnsureFeatureIsEnabled::class,
+            'module' => EnsureModuleIsInstalled::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

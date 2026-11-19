@@ -1,20 +1,33 @@
 <script setup lang="ts">
-const { user, isAdmin, logout } = useAuth()
+const { user, isAdmin, canModerate, logout } = useAuth()
 const { config, features } = usePlatform()
 
 useCloseOnNavigate('#dashboardSidebar', 'Offcanvas')
 
-const links = computed(() => [
-  { to: '/dashboard', label: 'Mes boutiques', icon: 'bi-grid-1x2' },
-  ...(features.value.shop_creation ? [{ to: '/creer-ma-boutique', label: 'Nouvelle boutique', icon: 'bi-plus-circle' }] : []),
-  ...(isAdmin.value
-    ? [
-        { to: '/admin/moderation', label: 'Modération', icon: 'bi-shield-check' },
-        { to: '/admin/parametres', label: 'Paramètres', icon: 'bi-sliders' },
-      ]
-    : []),
-  { to: '/', label: 'Retour au site', icon: 'bi-house' },
-])
+/** Moderators are staff accounts: they only get the moderation queue. */
+const isModeratorOnly = computed(() => user.value?.role === 'moderator')
+
+const links = computed(() => {
+  if (isModeratorOnly.value) {
+    return [
+      { to: '/admin/moderation', label: 'Modération', icon: 'bi-shield-check' },
+      { to: '/', label: 'Retour au site', icon: 'bi-house' },
+    ]
+  }
+
+  return [
+    { to: '/dashboard', label: 'Mes boutiques', icon: 'bi-grid-1x2' },
+    ...(features.value.shop_creation ? [{ to: '/creer-ma-boutique', label: 'Nouvelle boutique', icon: 'bi-plus-circle' }] : []),
+    ...(canModerate.value ? [{ to: '/admin/moderation', label: 'Modération', icon: 'bi-shield-check' }] : []),
+    ...(isAdmin.value
+      ? [
+          { to: '/admin/moderateurs', label: 'Modérateurs', icon: 'bi-people' },
+          { to: '/admin/parametres', label: 'Paramètres', icon: 'bi-sliders' },
+        ]
+      : []),
+    { to: '/', label: 'Retour au site', icon: 'bi-house' },
+  ]
+})
 </script>
 
 <template>

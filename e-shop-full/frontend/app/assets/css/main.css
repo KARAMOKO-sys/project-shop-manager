@@ -591,6 +591,55 @@ h5, h6, .h5, .h6 {
   color: var(--app-primary);
 }
 
+.home-demo {
+  background: var(--app-ivory);
+}
+
+.home-demo-frame {
+  padding: 0.65rem;
+  border: 1px solid var(--app-border);
+  border-radius: 1.25rem;
+  background: #fff;
+  box-shadow: var(--app-shadow);
+}
+
+.home-demo-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 0.8rem;
+  background: var(--app-forest);
+  object-fit: cover;
+}
+
+.home-demo-steps {
+  display: grid;
+  gap: 1rem;
+}
+
+.home-demo-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.home-demo-steps li > span {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--app-gold-soft);
+  color: var(--app-gold-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.home-demo-steps h3 {
+  color: var(--app-ink);
+}
+
 .step-card {
   position: relative;
   padding: 2rem 1.75rem;
@@ -2447,4 +2496,91 @@ table.visually-hidden {
 /* Room under the last dashboard element so the floating chat button never covers it. */
 .dashboard-main.dashboard-main {
   padding-bottom: 6.5rem !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* ERP                                                                 */
+/* ------------------------------------------------------------------ */
+
+.erp-nav .nav-link {
+  border-radius: 999px;
+  color: var(--bs-body-color);
+  background: var(--bs-white);
+  border: 1px solid var(--bs-border-color);
+  font-size: .9rem;
+}
+
+.erp-nav .nav-link.active {
+  color: var(--bs-white);
+  background: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+.erp-timeline {
+  border-left: 2px solid var(--bs-border-color);
+  padding-left: 1rem;
+  display: grid;
+  gap: .75rem;
+}
+
+.erp-timeline-item {
+  position: relative;
+}
+
+.erp-timeline-item::before {
+  content: "";
+  position: absolute;
+  left: calc(-1rem - 6px);
+  top: .35rem;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bs-primary);
+}
+
+.kanban-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(260px, 1fr);
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: .5rem;
+}
+
+.kanban-column {
+  background: var(--bs-tertiary-bg);
+  border-radius: var(--bs-border-radius-lg);
+  padding: .75rem;
+  min-height: 12rem;
+  transition: outline-color .15s;
+  outline: 2px dashed transparent;
+}
+
+.kanban-column.is-drop-target {
+  outline-color: var(--bs-primary);
+}
+
+.kanban-card {
+  cursor: grab;
+}
+
+.app-card.is-installed {
+  border-color: var(--bs-success-border-subtle);
+}
+
+@media print {
+  .dashboard-sidebar,
+  header.navbar,
+  .toast-container {
+    display: none !important;
+  }
+
+  .invoice-sheet {
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
 }

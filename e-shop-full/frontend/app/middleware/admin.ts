@@ -8,6 +8,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const currentUser = user.value ?? await fetchMe()
 
   if (!currentUser?.is_admin) {
-    return navigateTo('/dashboard')
+    return navigateTo(currentUser?.can_moderate ? '/admin/moderation' : '/dashboard')
   }
 })

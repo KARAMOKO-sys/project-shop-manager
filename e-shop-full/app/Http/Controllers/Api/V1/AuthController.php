@@ -30,6 +30,10 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['email' => 'Identifiants incorrects.']);
         }
 
+        if ($user->isSuspended()) {
+            throw ValidationException::withMessages(['email' => 'Ce compte est suspendu. Contactez l’administrateur de la plateforme.']);
+        }
+
         return $this->tokenResponse($user);
     }
 

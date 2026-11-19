@@ -37,6 +37,13 @@ class UpdateShopRequest extends FormRequest
             'flutterwave_webhook_secret_hash' => ['sometimes', 'nullable', 'string', 'max:255'],
             'flutterwave_enabled' => ['sometimes', 'boolean'],
             'cash_on_delivery_enabled' => ['sometimes', 'boolean'],
+            'delivery_enabled' => ['sometimes', 'boolean'],
+            'delivery_fee' => ['sometimes', 'numeric', 'min:0', 'max:99999999'],
+            'free_delivery_threshold' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:99999999'],
+            'delivery_zone' => ['sometimes', 'nullable', 'string', 'max:160'],
+            'delivery_delay' => ['sometimes', 'nullable', 'string', 'max:80'],
+            'pickup_enabled' => ['sometimes', 'boolean'],
+            'pickup_address' => ['sometimes', 'nullable', 'required_if:pickup_enabled,true', 'string', 'max:255'],
             ...self::themeRules(),
         ];
     }

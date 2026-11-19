@@ -49,6 +49,16 @@ const statusRows = computed(() => {
       <button type="button" class="btn btn-primary" @click="refresh()">Réessayer</button>
     </AppState>
     <template v-else>
+      <NuxtLink :to="`/dashboard/boutiques/${shop.id}/erp`" class="card card-hover text-reset text-decoration-none mb-4">
+        <div class="card-body d-flex align-items-center gap-3">
+          <span class="icon-tile is-gold" aria-hidden="true"><i class="bi bi-grid-3x3-gap" /></span>
+          <div class="flex-grow-1">
+            <p class="fw-bold mb-0">Gestion d’entreprise (ERP)</p>
+            <p class="small text-muted mb-0">Inventaire, achats, factures, dépenses, CRM et bénéfice réel : installez les applications dont vous avez besoin.</p>
+          </div>
+          <i class="bi bi-chevron-right" aria-hidden="true" />
+        </div>
+      </NuxtLink>
       <div class="row row-cols-2 row-cols-xl-3 g-2 g-sm-3 mb-4">
         <div v-for="kpi in kpis" :key="kpi.label" class="col">
           <div class="card kpi-card h-100 p-3 p-md-4 d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2 gap-md-3">

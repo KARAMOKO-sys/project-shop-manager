@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PaginationMeta } from '~/types'
 
-const props = defineProps<{ meta?: PaginationMeta | null }>()
+const props = defineProps<{ meta?: Pick<PaginationMeta, 'last_page'> | null }>()
 const page = defineModel<number>('page', { required: true })
 
 const pages = computed(() => {

@@ -32,7 +32,7 @@ export function useApi() {
   const user = useAuthUser()
 
   return $fetch.create({
-    baseURL: config.public.apiBase,
+    baseURL: import.meta.server ? config.apiInternalBase : config.public.apiBase,
     timeout: 20000,
     onRequest({ options }) {
       const headers = new Headers(options.headers)

@@ -17,6 +17,7 @@ export function useAuth() {
 
   const isAuthenticated = computed(() => Boolean(token.value))
   const isAdmin = computed(() => Boolean(user.value?.is_admin))
+  const canModerate = computed(() => Boolean(user.value?.can_moderate))
 
   async function authenticate(path: string, body: LoginCredentials | RegisterPayload): Promise<User> {
     const response = await api<Resource<AuthPayload>>(path, { method: 'POST', body })
@@ -63,5 +64,5 @@ export function useAuth() {
     await navigateTo('/')
   }
 
-  return { user, token, isAuthenticated, isAdmin, login, register, fetchMe, logout }
+  return { user, token, isAuthenticated, isAdmin, canModerate, login, register, fetchMe, logout }
 }

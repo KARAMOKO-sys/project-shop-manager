@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\DeliveryMethod;
 use App\Enums\PaymentMethod;
 use App\Models\Shop;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -36,6 +37,9 @@ class CheckoutRequest extends FormRequest
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:100'],
             'coupon_code' => ['nullable', 'string', 'max:64'],
             'payment_method' => ['required', Rule::enum(PaymentMethod::class)],
+            'delivery_method' => ['sometimes', Rule::enum(DeliveryMethod::class)],
+            'delivery_address' => ['required_if:delivery_method,delivery', 'nullable', 'string', 'max:255'],
+            'delivery_city' => ['required_if:delivery_method,delivery', 'nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -47,15 +51,17 @@ class CheckoutRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                if ($validator->errors()->has('payment_method')) {
-                    return;
-                }
-
                 $shop = $this->route('shop');
                 $method = PaymentMethod::tryFrom((string) $this->input('payment_method'));
 
                 if ($shop instanceof Shop && $method && ! $shop->acceptsPaymentMethod($method)) {
                     $validator->errors()->add('payment_method', 'Ce mode de paiement n’est pas activé pour cette boutique.');
+                }
+
+                $delivery = (string) $this->input('delivery_method', DeliveryMethod::Delivery->value);
+
+                if ($shop instanceof Shop && ! $validator->errors()->has('delivery_method') && ! in_array($delivery, $shop->availableDeliveryMethods(), true)) {
+                    $validator->errors()->add('delivery_method', 'Ce mode de livraison n’est pas proposé par cette boutique.');
                 }
             },
         ];

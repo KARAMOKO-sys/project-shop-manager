@@ -299,4 +299,63 @@ class StorefrontControllerTest extends TestCase
         $this->getJson("/api/v1/storefront/{$order->shop->slug}/orders/{$order->order_number}?email=intrus@example.com")
             ->assertNotFound();
     }
+
+    public function test_checkout_adds_the_shop_delivery_fee_and_stores_the_address(): void
+    {
+        $shop = Shop::factory()->create(['delivery_fee' => 1500]);
+        $product = Product::factory()->for($shop)->create(['price' => 4500]);
+
+        $this->postJson("/api/v1/storefront/{$shop->slug}/checkout", $this->checkoutPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ], ['delivery_method' => 'delivery', 'delivery_address' => 'Rue des Jardins, villa 12', 'delivery_city' => 'Cocody']))
+            ->assertCreated()
+            ->assertJsonPath('data.shipping_amount', 1500)
+            ->assertJsonPath('data.total', 6000)
+            ->assertJsonPath('data.delivery.method', 'delivery')
+            ->assertJsonPath('data.delivery.city', 'Cocody');
+    }
+
+    public function test_checkout_delivery_is_free_from_the_shop_threshold(): void
+    {
+        $shop = Shop::factory()->create(['delivery_fee' => 1500, 'free_delivery_threshold' => 10000]);
+        $product = Product::factory()->for($shop)->create(['price' => 5000]);
+
+        $this->postJson("/api/v1/storefront/{$shop->slug}/checkout", $this->checkoutPayload([
+            ['product_id' => $product->id, 'quantity' => 2],
+        ], ['delivery_method' => 'delivery', 'delivery_address' => 'Rue 12', 'delivery_city' => 'Yopougon']))
+            ->assertCreated()
+            ->assertJsonPath('data.shipping_amount', 0)
+            ->assertJsonPath('data.total', 10000);
+    }
+
+    public function test_checkout_requires_an_address_for_home_delivery(): void
+    {
+        $shop = Shop::factory()->create();
+        $product = Product::factory()->for($shop)->create();
+
+        $this->postJson("/api/v1/storefront/{$shop->slug}/checkout", $this->checkoutPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ], ['delivery_method' => 'delivery']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['delivery_address', 'delivery_city']);
+    }
+
+    public function test_checkout_pickup_is_free_but_only_when_the_shop_offers_it(): void
+    {
+        $shop = Shop::factory()->create(['delivery_fee' => 1500]);
+        $product = Product::factory()->for($shop)->create(['price' => 4500, 'stock_quantity' => 5]);
+        $payload = $this->checkoutPayload([['product_id' => $product->id, 'quantity' => 1]], ['delivery_method' => 'pickup']);
+
+        $this->postJson("/api/v1/storefront/{$shop->slug}/checkout", $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('delivery_method');
+
+        $shop->update(['pickup_enabled' => true, 'pickup_address' => 'Marché de Treichville, stand 4']);
+
+        $this->postJson("/api/v1/storefront/{$shop->slug}/checkout", $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.shipping_amount', 0)
+            ->assertJsonPath('data.total', 4500)
+            ->assertJsonPath('data.delivery.method', 'pickup');
+    }
 }

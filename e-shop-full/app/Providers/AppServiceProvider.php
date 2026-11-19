@@ -44,8 +44,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::define('moderate-products', fn (User $user): bool => $user->is_admin);
-        Gate::define('manage-platform', fn (User $user): bool => $user->is_admin);
+        Gate::define('moderate-products', fn (User $user): bool => $user->canModerate());
+        Gate::define('manage-platform', fn (User $user): bool => $user->isSuperAdmin());
 
         RateLimiter::for('ai', fn (Request $request) => Limit::perMinute(
             (int) $this->app->make(PlatformSettings::class)->get('ai.requests_per_minute'),

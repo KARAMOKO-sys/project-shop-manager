@@ -117,6 +117,10 @@ async function changeStatus(order: Order, next: OrderStatus): Promise<void> {
                     <div class="d-flex justify-content-between"><span>Livraison</span><PriceTag :amount="order.shipping_amount" :currency="order.currency" /></div>
                     <div v-if="order.discount_amount" class="d-flex justify-content-between"><span>Remise</span><span>−{{ formatPrice(order.discount_amount, order.currency) }}</span></div>
                     <p class="mt-2 mb-0"><i class="bi bi-envelope me-1" aria-hidden="true" />{{ order.customer.email }}</p>
+                    <p v-if="order.delivery?.method === 'pickup'" class="mb-0"><i class="bi bi-shop me-1" aria-hidden="true" />Retrait en boutique</p>
+                    <p v-else-if="order.delivery?.address" class="mb-0">
+                      <i class="bi bi-geo-alt me-1" aria-hidden="true" />{{ order.delivery.address }}<template v-if="order.delivery.city">, {{ order.delivery.city }}</template>
+                    </p>
                   </div>
                 </div>
               </td>

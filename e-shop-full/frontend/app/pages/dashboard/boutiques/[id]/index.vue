@@ -83,6 +83,9 @@ function onTabKeydown(event: KeyboardEvent, index: number): void {
           </div>
         </div>
         <div class="d-flex gap-2 flex-wrap">
+          <NuxtLink :to="`/dashboard/boutiques/${shop.id}/erp`" class="btn btn-outline-primary">
+            <i class="bi bi-grid-3x3-gap me-1" aria-hidden="true" />Gestion d’entreprise
+          </NuxtLink>
           <NuxtLink :to="`/dashboard/boutiques/${shop.id}/produits/nouveau`" class="btn btn-primary">
             <i class="bi bi-plus-lg me-1" aria-hidden="true" />Ajouter un produit
           </NuxtLink>

@@ -23,7 +23,7 @@ class ModerationController extends Controller
         ])['status'] ?? ModerationStatus::PendingReview->value;
 
         $products = Product::where('moderation_status', $status)
-            ->with('shop', 'category')
+            ->with('shop', 'category', 'moderator')
             ->orderByDesc('moderation_risk_score')
             ->paginate(25);
 
@@ -37,8 +37,9 @@ class ModerationController extends Controller
             'moderation_note' => $request->validated('note'),
             'moderation_engine' => 'human',
             'moderated_at' => now(),
+            'moderated_by' => $request->user()->id,
         ])->save();
 
-        return new ProductResource($product->load('shop', 'category'));
+        return new ProductResource($product->load('shop', 'category', 'moderator'));
     }
 }

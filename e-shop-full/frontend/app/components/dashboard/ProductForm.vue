@@ -28,6 +28,8 @@ const form = reactive({
   image_url: props.product?.image_url ?? '',
   tags: [...(props.product?.tags ?? [])],
   status: props.product?.status ?? 'published' as ProductStatus,
+  sku: props.product?.sku ?? '',
+  is_featured: props.product?.is_featured ?? false,
   description: props.product?.description ?? '',
 })
 
@@ -111,6 +113,7 @@ async function submit(): Promise<void> {
     image_url: form.image_url || null,
     compare_at_price: form.compare_at_price || null,
     description: form.description || null,
+    sku: form.sku.trim() || null,
   }
 
   try {
@@ -184,6 +187,18 @@ async function submit(): Promise<void> {
             <label for="status-draft" class="btn btn-outline-primary"><i class="bi bi-pencil me-1" aria-hidden="true" />Brouillon</label>
           </div>
           <FieldError id="product-status-error" :message="errors.status" />
+        </div>
+        <div class="col-sm-6">
+          <label for="product-sku" class="form-label">Référence (SKU) <span class="text-muted fw-normal">(optionnel)</span></label>
+          <input id="product-sku" v-model="form.sku" type="text" maxlength="100" class="form-control" :class="{ 'is-invalid': errors.sku }" placeholder="Ex. : ROBE-WAX-M" aria-describedby="product-sku-error">
+          <FieldError id="product-sku-error" :message="errors.sku" />
+        </div>
+        <div class="col-sm-6 d-flex align-items-sm-end">
+          <div class="form-check form-switch mb-sm-2">
+            <input id="product-featured" v-model="form.is_featured" class="form-check-input" type="checkbox" role="switch" aria-describedby="product-featured-help">
+            <label for="product-featured" class="form-check-label fw-semibold">Produit vedette</label>
+            <p id="product-featured-help" class="form-text mb-0">Affiché en premier dans la boutique.</p>
+          </div>
         </div>
       </div>
     </div>

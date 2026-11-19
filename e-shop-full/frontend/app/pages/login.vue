@@ -10,6 +10,7 @@ const form = reactive({ email: '', password: '' })
 const errors = ref<Record<string, string>>({})
 const generalError = ref('')
 const submitting = ref(false)
+const passwordVisible = ref(false)
 
 async function submit(): Promise<void> {
   submitting.value = true
@@ -57,16 +58,28 @@ async function submit(): Promise<void> {
           </div>
           <div class="mb-4">
             <label for="login-password" class="form-label">Mot de passe</label>
-            <input
-              id="login-password"
-              v-model="form.password"
-              type="password"
-              class="form-control form-control-lg"
-              :class="{ 'is-invalid': errors.password }"
-              autocomplete="current-password"
-              required
-              aria-describedby="login-password-error"
-            >
+            <div class="input-group input-group-lg">
+              <input
+                id="login-password"
+                v-model="form.password"
+                :type="passwordVisible ? 'text' : 'password'"
+                class="form-control"
+                :class="{ 'is-invalid': errors.password }"
+                autocomplete="current-password"
+                required
+                aria-describedby="login-password-error"
+              >
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                :aria-label="passwordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+                :aria-pressed="passwordVisible"
+                aria-controls="login-password"
+                @click="passwordVisible = !passwordVisible"
+              >
+                <i class="bi" :class="passwordVisible ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true" />
+              </button>
+            </div>
             <FieldError id="login-password-error" :message="errors.password" />
           </div>
           <button type="submit" class="btn btn-primary btn-lg w-100" :disabled="submitting">

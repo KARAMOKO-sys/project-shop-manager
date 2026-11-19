@@ -28,6 +28,35 @@ const { data: recommendations } = useAsyncData(
 
 const quantity = ref(1)
 const primary = computed(() => resolveTheme(shop.value?.theme).primary)
+
+/** Reassurance lines built from the shop's real delivery and payment settings. */
+const reassurances = computed(() => {
+  const delivery = shop.value?.delivery
+  const currency = shop.value?.currency ?? 'XOF'
+  const lines: { icon: string, text: string }[] = []
+
+  if (delivery?.enabled) {
+    const fee = delivery.fee > 0 ? `${formatPrice(delivery.fee, currency)}${delivery.free_threshold ? `, offerte dès ${formatPrice(delivery.free_threshold, currency)}` : ''}` : 'offerte'
+    lines.push({ icon: 'bi-truck', text: `Livraison ${fee}${delivery.delay ? ` · ${delivery.delay}` : ''}` })
+  }
+
+  if (delivery?.pickup_enabled) {
+    lines.push({ icon: 'bi-shop', text: 'Retrait gratuit en boutique' })
+  }
+
+  const methods = shop.value?.payment_methods ?? []
+
+  if (methods.length) {
+    lines.push({
+      icon: 'bi-phone',
+      text: methods.includes('flutterwave') && methods.includes('cash_on_delivery')
+        ? 'Paiement Mobile Money, carte ou à la livraison'
+        : methods.includes('flutterwave') ? 'Paiement Mobile Money ou carte' : 'Paiement à la livraison',
+    })
+  }
+
+  return lines
+})
 const maxQuantity = computed(() => Math.max(1, product.value?.stock_quantity ?? 1))
 
 useSeoMeta({
@@ -104,8 +133,7 @@ function addToCart(): void {
             <span v-for="tag in product.tags" :key="tag" class="badge rounded-pill text-bg-light">#{{ tag }}</span>
           </div>
           <ul class="list-unstyled small text-muted d-grid gap-2 border-top pt-3">
-            <li><i class="bi bi-truck me-2" aria-hidden="true" />Livraison rapide dans votre ville</li>
-            <li><i class="bi bi-phone me-2" aria-hidden="true" />Paiement Mobile Money ou à la livraison</li>
+            <li v-for="line in reassurances" :key="line.icon"><i class="bi me-2" :class="line.icon" aria-hidden="true" />{{ line.text }}</li>
             <li><i class="bi bi-chat-dots me-2" aria-hidden="true" />Une question ? Notre assistant répond 24h/24</li>
           </ul>
         </div>

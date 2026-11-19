@@ -19,8 +19,19 @@ const paymentForm = reactive({
   flutterwave_secret_key: '',
   flutterwave_webhook_secret_hash: '',
 })
+const deliveryForm = reactive({
+  delivery_enabled: props.shop.delivery?.enabled ?? true,
+  delivery_fee: props.shop.delivery?.fee ?? 0,
+  free_delivery_threshold: props.shop.delivery?.free_threshold ?? null as number | null,
+  delivery_zone: props.shop.delivery?.zone ?? '',
+  delivery_delay: props.shop.delivery?.delay ?? '',
+  pickup_enabled: props.shop.delivery?.pickup_enabled ?? false,
+  pickup_address: props.shop.delivery?.pickup_address ?? '',
+})
 const errors = ref<Record<string, string>>({})
 const paymentErrors = ref<Record<string, string>>({})
+const deliveryErrors = ref<Record<string, string>>({})
+const savingDelivery = ref(false)
 const saving = ref(false)
 const savingPayments = ref(false)
 const deleting = ref(false)
@@ -100,6 +111,40 @@ async function savePayments(): Promise<void> {
   }
   finally {
     savingPayments.value = false
+  }
+}
+
+async function saveDelivery(): Promise<void> {
+  if (!deliveryForm.delivery_enabled && !deliveryForm.pickup_enabled) {
+    deliveryErrors.value = { delivery_enabled: 'Proposez au moins la livraison ou le retrait en boutique.' }
+
+    return
+  }
+
+  savingDelivery.value = true
+  deliveryErrors.value = {}
+
+  try {
+    const { data } = await api<Resource<Shop>>(`/shops/${props.shop.id}`, {
+      method: 'PUT',
+      body: {
+        ...deliveryForm,
+        delivery_fee: Number(deliveryForm.delivery_fee) || 0,
+        free_delivery_threshold: deliveryForm.free_delivery_threshold === null || String(deliveryForm.free_delivery_threshold) === '' ? null : Number(deliveryForm.free_delivery_threshold),
+      },
+    })
+    emit('updated', data)
+    toast.success('Options de livraison enregistrées.')
+  }
+  catch (error) {
+    deliveryErrors.value = validationErrors(error)
+
+    if (!Object.keys(deliveryErrors.value).length) {
+      toast.error(errorMessage(error, 'Les options de livraison n’ont pas pu être enregistrées.'))
+    }
+  }
+  finally {
+    savingDelivery.value = false
   }
 }
 
@@ -237,6 +282,56 @@ async function destroy(): Promise<void> {
         <button type="submit" class="btn btn-primary" :disabled="savingPayments">
           <span v-if="savingPayments" class="spinner-border spinner-border-sm me-2" aria-hidden="true" />
           Enregistrer les paiements
+        </button>
+      </div>
+    </form>
+
+    <form class="card p-4" novalidate aria-labelledby="settings-delivery-title" @submit.prevent="saveDelivery">
+      <h2 id="settings-delivery-title" class="h5 fw-bold mb-2">Livraison</h2>
+      <p class="text-muted">Les frais sont ajoutés automatiquement au total de la commande.</p>
+
+      <div class="form-check form-switch mb-3">
+        <input id="settings-delivery-enabled" v-model="deliveryForm.delivery_enabled" class="form-check-input" type="checkbox" role="switch" aria-describedby="settings-delivery-enabled-error">
+        <label for="settings-delivery-enabled" class="form-check-label fw-semibold">Livraison à domicile</label>
+        <FieldError id="settings-delivery-enabled-error" :message="deliveryErrors.delivery_enabled" />
+      </div>
+
+      <div v-if="deliveryForm.delivery_enabled" class="row g-3 mb-4">
+        <div class="col-sm-6">
+          <label for="settings-delivery-fee" class="form-label">Frais de livraison ({{ shop.currency }})</label>
+          <input id="settings-delivery-fee" v-model.number="deliveryForm.delivery_fee" type="number" min="0" step="any" class="form-control" :class="{ 'is-invalid': deliveryErrors.delivery_fee }" aria-describedby="settings-delivery-fee-help settings-delivery-fee-error">
+          <p id="settings-delivery-fee-help" class="form-text mb-0">0 = livraison offerte.</p>
+          <FieldError id="settings-delivery-fee-error" :message="deliveryErrors.delivery_fee" />
+        </div>
+        <div class="col-sm-6">
+          <label for="settings-free-threshold" class="form-label">Gratuite à partir de ({{ shop.currency }})</label>
+          <input id="settings-free-threshold" v-model.number="deliveryForm.free_delivery_threshold" type="number" min="0" step="any" class="form-control" :class="{ 'is-invalid': deliveryErrors.free_delivery_threshold }" placeholder="Optionnel" aria-describedby="settings-free-threshold-error">
+          <FieldError id="settings-free-threshold-error" :message="deliveryErrors.free_delivery_threshold" />
+        </div>
+        <div class="col-sm-6">
+          <label for="settings-delivery-zone" class="form-label">Zone desservie</label>
+          <input id="settings-delivery-zone" v-model="deliveryForm.delivery_zone" type="text" maxlength="160" class="form-control" placeholder="Ex. : Abidjan et environs">
+        </div>
+        <div class="col-sm-6">
+          <label for="settings-delivery-delay" class="form-label">Délai indicatif</label>
+          <input id="settings-delivery-delay" v-model="deliveryForm.delivery_delay" type="text" maxlength="80" class="form-control" placeholder="Ex. : 24 à 48 h">
+        </div>
+      </div>
+
+      <div class="form-check form-switch mb-3">
+        <input id="settings-pickup-enabled" v-model="deliveryForm.pickup_enabled" class="form-check-input" type="checkbox" role="switch">
+        <label for="settings-pickup-enabled" class="form-check-label fw-semibold">Retrait en boutique (gratuit)</label>
+      </div>
+      <div v-if="deliveryForm.pickup_enabled" class="mb-3">
+        <label for="settings-pickup-address" class="form-label">Adresse de retrait</label>
+        <input id="settings-pickup-address" v-model="deliveryForm.pickup_address" type="text" maxlength="255" class="form-control" :class="{ 'is-invalid': deliveryErrors.pickup_address }" placeholder="Ex. : Marché de Treichville, stand 4" required aria-describedby="settings-pickup-address-error">
+        <FieldError id="settings-pickup-address-error" :message="deliveryErrors.pickup_address" />
+      </div>
+
+      <div class="mt-2">
+        <button type="submit" class="btn btn-primary" :disabled="savingDelivery">
+          <span v-if="savingDelivery" class="spinner-border spinner-border-sm me-2" aria-hidden="true" />
+          Enregistrer la livraison
         </button>
       </div>
     </form>

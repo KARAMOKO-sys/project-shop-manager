@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\ProductStatus;
+use App\Enums\UserRole;
 use App\Models\Shop;
 use App\Models\User;
 use App\Services\ProductService;
@@ -104,7 +105,7 @@ class DatabaseSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'admin@shopai.test'],
             ['name' => 'Admin ShopAI', 'password' => 'password'],
-        )->forceFill(['is_admin' => true])->save();
+        )->forceFill(['role' => UserRole::SuperAdmin])->save();
 
         $merchant = User::firstOrCreate(
             ['email' => 'marchand@shopai.test'],
@@ -124,6 +125,15 @@ class DatabaseSeeder extends Seeder
                 'tagline' => $demo['tagline'],
                 'description' => $demo['description'],
                 'categories' => $categories,
+            ]);
+
+            $shop->update([
+                'delivery_fee' => 1_000,
+                'free_delivery_threshold' => 25_000,
+                'delivery_zone' => 'Abidjan et environs',
+                'delivery_delay' => '24 à 48 h',
+                'pickup_enabled' => $demo['template'] === 'restaurant',
+                'pickup_address' => $demo['template'] === 'restaurant' ? 'Cocody, Rue des Jardins' : null,
             ]);
 
             foreach ($demo['products'] as $product) {

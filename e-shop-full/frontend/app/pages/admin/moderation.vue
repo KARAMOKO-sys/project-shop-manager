@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ModerationStatus, Paginated, Product, Resource } from '~/types'
 
-definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] })
+definePageMeta({ layout: 'dashboard', middleware: ['auth', 'moderator'] })
 useSeoMeta({ title: 'Modération', robots: 'noindex' })
 
 const api = useApi()
@@ -108,7 +108,7 @@ async function decide(product: Product, decision: 'approve' | 'reject'): Promise
           <div class="col-md-5">
             <div class="d-flex justify-content-between small mb-1">
               <span class="fw-semibold">Score de risque</span>
-              <span>{{ product.moderation.risk_score }}/100 · {{ product.moderation.engine === 'claude' ? 'IA avancée' : 'IA locale' }}</span>
+              <span>{{ product.moderation.risk_score }}/100 · {{ product.moderation.engine === 'human' ? `Décidé par ${product.moderation.reviewed_by ?? 'un modérateur'}` : product.moderation.engine === 'claude' ? 'IA avancée' : 'IA locale' }}</span>
             </div>
             <div class="progress mb-3" role="progressbar" :aria-label="`Score de risque de ${product.name}`" :aria-valuenow="product.moderation.risk_score" aria-valuemin="0" aria-valuemax="100" style="height: 10px;">
               <div class="progress-bar" :class="`bg-${riskVariant(product.moderation.risk_score)}`" :style="{ width: `${product.moderation.risk_score}%` }" />

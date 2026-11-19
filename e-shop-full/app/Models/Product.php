@@ -29,6 +29,7 @@ class Product extends Model
         'cost_price',
         'stock_quantity',
         'stock_status',
+        'reorder_point',
         'status',
         'is_featured',
         'image_url',
@@ -39,6 +40,7 @@ class Product extends Model
         'moderation_engine',
         'moderation_note',
         'moderated_at',
+        'moderated_by',
     ];
 
     /**
@@ -60,6 +62,14 @@ class Product extends Model
         'moderated_at' => 'datetime',
     ];
 
+    /**
+     * The moderator or super administrator who took the last human decision.
+     */
+    public function moderator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'moderated_by');
+    }
+
     public function shop(): BelongsTo
     {
         return $this->belongsTo(Shop::class);
@@ -73,6 +83,19 @@ class Product extends Model
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class);
+    }
+
+    /**
+     * Quantity held in each warehouse (Inventory application).
+     */
+    public function stocks(): HasMany
+    {
+        return $this->hasMany(ProductStock::class);
+    }
+
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(StockMovement::class);
     }
 
     /**

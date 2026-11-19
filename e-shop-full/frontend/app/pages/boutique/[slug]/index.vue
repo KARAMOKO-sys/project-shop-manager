@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import type { Paginated, Product } from '~/types'
+import type { Component } from 'vue'
+import type { Paginated, Product, ShopFormat } from '~/types'
+import FormatCatalog from '~/components/storefront/formats/FormatCatalog.vue'
+import FormatClassic from '~/components/storefront/formats/FormatClassic.vue'
+import FormatEditorial from '~/components/storefront/formats/FormatEditorial.vue'
+import FormatMenu from '~/components/storefront/formats/FormatMenu.vue'
+import FormatShowcase from '~/components/storefront/formats/FormatShowcase.vue'
+import FormatSingleProduct from '~/components/storefront/formats/FormatSingleProduct.vue'
 
 definePageMeta({ layout: 'storefront' })
 
@@ -12,8 +19,7 @@ const { data: shop, status: shopStatus, error: shopError } = await useStorefront
 const { add } = useCart(slug)
 
 const category = ref(typeof route.query.categorie === 'string' ? route.query.categorie : '')
-const searchDraft = ref(typeof route.query.q === 'string' ? route.query.q : '')
-const search = ref(searchDraft.value)
+const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const page = ref(1)
 
 const { data: products, status, error, refresh } = await useAsyncData(
@@ -24,8 +30,18 @@ const { data: products, status, error, refresh } = await useAsyncData(
   { watch: [category, search, page] },
 )
 
+/** Page structure chosen by the merchant in "Apparence"; every format shares the same props and events. */
+const FORMATS: Record<ShopFormat, Component> = {
+  classic: FormatClassic,
+  editorial: FormatEditorial,
+  catalog: FormatCatalog,
+  menu: FormatMenu,
+  showcase: FormatShowcase,
+  single_product: FormatSingleProduct,
+}
+
 const theme = computed(() => resolveTheme(shop.value?.theme))
-const heroStyle = computed(() => (theme.value.hero_style === 'image' && shop.value?.logo_url ? { '--hero-image': `url("${shop.value.logo_url}")` } : {}))
+const formatComponent = computed(() => FORMATS[theme.value.format] ?? FormatClassic)
 
 useSeoMeta({
   title: () => shop.value?.name ?? 'Boutique',
@@ -40,81 +56,41 @@ function selectCategory(value: string): void {
   page.value = 1
 }
 
-function applySearch(): void {
-  search.value = searchDraft.value.trim()
+function applySearch(term: string): void {
+  search.value = term
   page.value = 1
 }
 
-function addToCart(product: Product): void {
-  add(product)
+function addToCart(product: Product, quantity = 1): void {
+  add(product, quantity)
   toast.success(`« ${product.name} » ajouté au panier.`)
 }
 </script>
 
 <template>
-  <div class="container py-4">
-    <AppState v-if="shopStatus === 'pending'" loading text="Ouverture de la boutique…" />
-    <AppState v-else-if="shopError || !shop" variant="error" title="Boutique introuvable" text="Cette boutique n’existe pas ou est momentanément indisponible.">
-      <NuxtLink to="/" class="btn btn-primary">Découvrir ShopAI</NuxtLink>
-    </AppState>
-    <template v-else>
-      <section class="shop-hero mb-4" :class="`shop-hero-${theme.hero_style}`" :style="heroStyle" aria-labelledby="shop-title">
-        <div style="max-width: 40rem;">
-          <h1 id="shop-title" class="display-5 fw-bold mb-3">{{ shop.name }}</h1>
-          <p v-if="shop.tagline" class="lead mb-2">{{ shop.tagline }}</p>
-          <p v-if="shop.description" class="mb-4 opacity-75">{{ shop.description }}</p>
-          <a href="#catalogue" class="btn btn-lg" :class="theme.hero_style === 'minimal' ? 'btn-primary' : 'btn-light'">
-            Découvrir nos produits <i class="bi bi-arrow-down ms-1" aria-hidden="true" />
-          </a>
-        </div>
-      </section>
-
-      <section id="catalogue" aria-labelledby="catalogue-title">
-        <h2 id="catalogue-title" class="visually-hidden">Catalogue</h2>
-        <div class="d-flex flex-column flex-lg-row gap-3 justify-content-between align-items-lg-center mb-4">
-          <ul v-if="shop.categories?.length" class="nav nav-pills gap-2 flex-nowrap overflow-auto pb-1" aria-label="Filtrer par catégorie">
-            <li class="nav-item">
-              <button type="button" class="nav-link text-nowrap" :class="{ active: !category }" :aria-pressed="!category" @click="selectCategory('')">Tout</button>
-            </li>
-            <li v-for="item in shop.categories" :key="item.id" class="nav-item">
-              <button type="button" class="nav-link text-nowrap" :class="{ active: category === item.slug }" :aria-pressed="category === item.slug" @click="selectCategory(item.slug)">
-                {{ item.name }}
-              </button>
-            </li>
-          </ul>
-          <form class="ms-lg-auto" role="search" style="min-width: min(100%, 320px);" @submit.prevent="applySearch">
-            <label for="shop-search" class="visually-hidden">Rechercher un produit</label>
-            <div class="input-group">
-              <input id="shop-search" v-model="searchDraft" type="search" class="form-control" placeholder="Rechercher un produit…">
-              <button type="submit" class="btn btn-primary" aria-label="Rechercher"><i class="bi bi-search" aria-hidden="true" /></button>
-            </div>
-          </form>
-        </div>
-
-        <AppState v-if="status === 'pending'" loading text="Chargement des produits…" />
-        <AppState v-else-if="error" variant="error" title="Impossible de charger les produits" text="Vérifiez votre connexion et réessayez.">
-          <button type="button" class="btn btn-primary" @click="refresh()">Réessayer</button>
-        </AppState>
-        <AppState
-          v-else-if="!products?.data.length"
-          icon="bi-search"
-          :title="search || category ? 'Aucun produit ne correspond' : 'La boutique se prépare'"
-          :text="search || category ? 'Essayez une autre recherche ou catégorie.' : 'Les premiers produits arrivent très bientôt.'"
-        />
-        <template v-else>
-          <div v-if="theme.layout === 'masonry'" class="masonry">
-            <div v-for="product in products.data" :key="product.id">
-              <ProductCard :product="product" :shop-slug="slug" :color="theme.primary" addable @add="addToCart" />
-            </div>
-          </div>
-          <div v-else class="row g-3 g-md-4" :class="theme.layout === 'list' ? 'row-cols-1 row-cols-lg-2' : 'row-cols-2 row-cols-md-3 row-cols-xl-4'">
-            <div v-for="product in products.data" :key="product.id" class="col">
-              <ProductCard :product="product" :shop-slug="slug" :layout="theme.layout" :color="theme.primary" addable @add="addToCart" />
-            </div>
-          </div>
-          <AppPagination v-model:page="page" :meta="products.meta" />
-        </template>
-      </section>
-    </template>
+  <div>
+    <div v-if="shopStatus === 'pending' || shopError || !shop" class="container py-4">
+      <AppState v-if="shopStatus === 'pending'" loading text="Ouverture de la boutique…" />
+      <AppState v-else variant="error" title="Boutique introuvable" text="Cette boutique n’existe pas ou est momentanément indisponible.">
+        <NuxtLink to="/" class="btn btn-primary">Découvrir la plateforme</NuxtLink>
+      </AppState>
+    </div>
+    <component
+      :is="formatComponent"
+      v-else
+      v-model:page="page"
+      :shop="shop"
+      :theme="theme"
+      :products="products?.data ?? []"
+      :meta="products?.meta"
+      :loading="status === 'pending'"
+      :failed="Boolean(error)"
+      :category="category"
+      :search="search"
+      @select-category="selectCategory"
+      @search="applySearch"
+      @add="addToCart"
+      @retry="refresh()"
+    />
   </div>
 </template>

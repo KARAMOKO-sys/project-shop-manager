@@ -15,7 +15,7 @@ const riskVariant = computed(() => {
     <div class="d-flex align-items-center gap-3 flex-wrap">
       <ModerationBadge :moderation="moderation" />
       <span class="small text-muted">
-        Vérifié par {{ moderation.engine === 'claude' ? 'l’agent IA avancé' : 'l’agent IA local' }}
+        Vérifié par {{ moderation.engine === 'human' ? 'un modérateur de la plateforme' : moderation.engine === 'claude' ? 'l’agent IA avancé' : 'l’agent IA local' }}
         <template v-if="moderation.checked_at"> · {{ formatDate(moderation.checked_at) }}</template>
       </span>
     </div>

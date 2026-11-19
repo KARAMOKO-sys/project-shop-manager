@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CouponCheck, Order, PaymentMethod, Resource } from '~/types'
+import type { CouponCheck, DeliveryMethod, Order, PaymentMethod, Resource } from '~/types'
 
 definePageMeta({ layout: 'storefront' })
 
@@ -16,6 +16,8 @@ useSeoMeta({ title: () => `Commande — ${shop.value?.name ?? 'Boutique'}`, robo
 const customer = reactive({ first_name: '', last_name: '', email: '', phone: '' })
 const paymentMethod = ref<PaymentMethod>('cash_on_delivery')
 const paymentOptions = computed(() => PAYMENT_METHODS.filter(method => shop.value?.payment_methods.includes(method.value)))
+const deliveryMethod = ref<DeliveryMethod>(shop.value?.delivery?.methods[0] ?? 'delivery')
+const address = reactive({ street: '', city: '' })
 const couponCode = ref('')
 const errors = ref<Record<string, string>>({})
 const generalError = ref('')
@@ -35,7 +37,24 @@ const CUSTOMER_FIELDS = [
 ] as const
 
 const discount = computed(() => Math.min(subtotal.value, Number(appliedCoupon.value?.discount_amount ?? 0)))
-const estimatedTotal = computed(() => Math.max(0, subtotal.value - discount.value))
+/** Mirrors Shop::deliveryFeeFor(): flat fee, free from the threshold, pickup always free. */
+const shippingFee = computed(() => {
+  const delivery = shop.value?.delivery
+
+  if (!delivery || deliveryMethod.value === 'pickup') {
+    return 0
+  }
+
+  const amount = subtotal.value - discount.value
+
+  return delivery.free_threshold !== null && amount >= delivery.free_threshold ? 0 : delivery.fee
+})
+const amountToFreeDelivery = computed(() => {
+  const threshold = shop.value?.delivery?.free_threshold
+
+  return deliveryMethod.value === 'delivery' && threshold && shippingFee.value > 0 ? threshold - (subtotal.value - discount.value) : 0
+})
+const estimatedTotal = computed(() => Math.max(0, subtotal.value - discount.value) + shippingFee.value)
 const trackingLink = computed(() => (order.value
   ? { path: `/boutique/${slug}/suivi`, query: { commande: order.value.order_number, email: order.value.customer.email } }
   : `/boutique/${slug}/suivi`))
@@ -111,6 +130,9 @@ async function submit(): Promise<void> {
         items: items.value.map(item => ({ product_id: item.product_id, quantity: item.quantity })),
         coupon_code: appliedCoupon.value?.code ?? (couponCode.value.trim() || undefined),
         payment_method: paymentMethod.value,
+        delivery_method: deliveryMethod.value,
+        delivery_address: deliveryMethod.value === 'delivery' ? address.street : undefined,
+        delivery_city: deliveryMethod.value === 'delivery' ? address.city : undefined,
       },
     })
     appliedCoupon.value = null
@@ -162,9 +184,15 @@ async function submit(): Promise<void> {
         <dd class="col-6 text-end fw-bold"><PriceTag :amount="order.total" :currency="order.currency" /></dd>
         <dt class="col-6">Paiement</dt>
         <dd class="col-6 text-end">{{ paymentMethodLabel(order.payment_method) }}</dd>
+        <dt class="col-6">{{ order.delivery?.method === 'pickup' ? 'Retrait' : 'Livraison' }}</dt>
+        <dd class="col-6 text-end">
+          <template v-if="order.delivery?.method === 'pickup'">{{ shop?.delivery?.pickup_address ?? 'En boutique' }}</template>
+          <template v-else>{{ [order.delivery?.address, order.delivery?.city].filter(Boolean).join(', ') || 'À domicile' }}</template>
+        </dd>
       </dl>
-      <p v-if="order.payment_method === 'cash_on_delivery'" class="small">Préparez le montant exact : vous réglerez à la réception de votre colis.</p>
-      <p v-else-if="order.payment_method === 'mobile_money'" class="small">Vous allez recevoir une demande de paiement Mobile Money sur votre téléphone.</p>
+      <p v-if="order.payment_method === 'cash_on_delivery'" class="small">
+        Préparez le montant exact : vous réglerez {{ order.delivery?.method === 'pickup' ? 'au retrait de votre commande' : 'à la réception de votre colis' }}.
+      </p>
       <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center">
         <NuxtLink :to="trackingLink" class="btn btn-outline-primary btn-lg">
           <i class="bi bi-truck me-1" aria-hidden="true" />Suivre ma commande
@@ -201,6 +229,48 @@ async function submit(): Promise<void> {
                     :aria-describedby="`customer-${field.key}-error`"
                   >
                   <FieldError :id="`customer-${field.key}-error`" :message="errors[`customer.${field.key}`]" />
+                </div>
+              </div>
+            </fieldset>
+            <fieldset class="card p-4">
+              <legend class="h5 fw-bold float-none mb-3">Livraison</legend>
+              <div class="d-grid gap-2 mb-3">
+                <div v-if="shop?.delivery?.methods.includes('delivery')">
+                  <input id="delivery-home" v-model="deliveryMethod" type="radio" class="btn-check" name="delivery_method" value="delivery">
+                  <label for="delivery-home" class="payment-option d-flex align-items-center gap-3 p-3 w-100">
+                    <span class="icon-tile" aria-hidden="true"><i class="bi bi-truck" /></span>
+                    <span class="flex-grow-1">
+                      <span class="d-block fw-bold">Livraison à domicile</span>
+                      <span class="d-block small text-muted">
+                        {{ [shop.delivery.zone, shop.delivery.delay].filter(Boolean).join(' · ') || 'Livrée à l’adresse de votre choix' }}
+                      </span>
+                    </span>
+                    <span class="fw-semibold text-nowrap">{{ shop.delivery.fee > 0 ? formatPrice(shop.delivery.fee, currency) : 'Offerte' }}</span>
+                  </label>
+                </div>
+                <div v-if="shop?.delivery?.methods.includes('pickup')">
+                  <input id="delivery-pickup" v-model="deliveryMethod" type="radio" class="btn-check" name="delivery_method" value="pickup">
+                  <label for="delivery-pickup" class="payment-option d-flex align-items-center gap-3 p-3 w-100">
+                    <span class="icon-tile" aria-hidden="true"><i class="bi bi-shop" /></span>
+                    <span class="flex-grow-1">
+                      <span class="d-block fw-bold">Retrait en boutique</span>
+                      <span class="d-block small text-muted">{{ shop.delivery.pickup_address }}</span>
+                    </span>
+                    <span class="fw-semibold text-nowrap">Gratuit</span>
+                  </label>
+                </div>
+              </div>
+              <FieldError id="delivery-method-error" :message="errors.delivery_method" />
+              <div v-if="deliveryMethod === 'delivery'" class="row g-3">
+                <div class="col-md-8">
+                  <label for="delivery-address" class="form-label">Adresse de livraison</label>
+                  <input id="delivery-address" v-model="address.street" type="text" class="form-control" :class="{ 'is-invalid': errors.delivery_address }" autocomplete="street-address" placeholder="Quartier, rue, repère…" required aria-describedby="delivery-address-error">
+                  <FieldError id="delivery-address-error" :message="errors.delivery_address" />
+                </div>
+                <div class="col-md-4">
+                  <label for="delivery-city" class="form-label">Commune / ville</label>
+                  <input id="delivery-city" v-model="address.city" type="text" class="form-control" :class="{ 'is-invalid': errors.delivery_city }" autocomplete="address-level2" required aria-describedby="delivery-city-error">
+                  <FieldError id="delivery-city-error" :message="errors.delivery_city" />
                 </div>
               </div>
             </fieldset>
@@ -266,12 +336,19 @@ async function submit(): Promise<void> {
                   <dt class="fw-normal">Remise ({{ appliedCoupon.code }})</dt>
                   <dd class="mb-1">−{{ formatPrice(discount, currency) }}</dd>
                 </div>
+                <div class="d-flex justify-content-between">
+                  <dt class="fw-normal">{{ deliveryMethod === 'pickup' ? 'Retrait en boutique' : 'Livraison' }}</dt>
+                  <dd class="mb-1">{{ shippingFee > 0 ? formatPrice(shippingFee, currency) : 'Gratuit' }}</dd>
+                </div>
               </dl>
               <div class="d-flex justify-content-between fw-bold fs-5 pt-2">
                 <span>Total</span>
                 <PriceTag :amount="estimatedTotal" :currency="currency" />
               </div>
-              <p class="small text-muted">Frais de livraison calculés à la validation.</p>
+              <p v-if="amountToFreeDelivery > 0" class="small text-success">
+                <i class="bi bi-gift me-1" aria-hidden="true" />Plus que {{ formatPrice(amountToFreeDelivery, currency) }} pour la livraison offerte.
+              </p>
+              <p v-else class="small text-muted">Montant définitif confirmé à la validation.</p>
               <button type="submit" class="btn btn-primary btn-lg w-100" :disabled="submitting || !paymentOptions.length">
                 <span v-if="submitting" class="spinner-border spinner-border-sm me-2" aria-hidden="true" />
                 Valider ma commande

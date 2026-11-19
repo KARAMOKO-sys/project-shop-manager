@@ -11,6 +11,7 @@ const form = reactive({ name: '', email: '', password: '', password_confirmation
 const errors = ref<Record<string, string>>({})
 const generalError = ref('')
 const submitting = ref(false)
+const passwordVisibility = reactive({ password: false, password_confirmation: false })
 
 const fields = [
   { key: 'name', label: 'Nom complet', type: 'text', autocomplete: 'name' },
@@ -54,7 +55,52 @@ async function submit(): Promise<void> {
         <form v-if="features.registration" novalidate @submit.prevent="submit">
           <div v-for="field in fields" :key="field.key" class="mb-3">
             <label :for="`register-${field.key}`" class="form-label">{{ field.label }}</label>
+            <div v-if="field.key === 'password'" class="input-group input-group-lg">
+              <input
+                id="register-password"
+                v-model="form.password"
+                :type="passwordVisibility.password ? 'text' : 'password'"
+                class="form-control"
+                :class="{ 'is-invalid': errors.password }"
+                autocomplete="new-password"
+                required
+                aria-describedby="register-password-error"
+              >
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                :aria-label="passwordVisibility.password ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+                :aria-pressed="passwordVisibility.password"
+                aria-controls="register-password"
+                @click="passwordVisibility.password = !passwordVisibility.password"
+              >
+                <i class="bi" :class="passwordVisibility.password ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true" />
+              </button>
+            </div>
+            <div v-else-if="field.key === 'password_confirmation'" class="input-group input-group-lg">
+              <input
+                id="register-password_confirmation"
+                v-model="form.password_confirmation"
+                :type="passwordVisibility.password_confirmation ? 'text' : 'password'"
+                class="form-control"
+                :class="{ 'is-invalid': errors.password_confirmation }"
+                autocomplete="new-password"
+                required
+                aria-describedby="register-password_confirmation-error"
+              >
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                :aria-label="passwordVisibility.password_confirmation ? 'Masquer la confirmation du mot de passe' : 'Afficher la confirmation du mot de passe'"
+                :aria-pressed="passwordVisibility.password_confirmation"
+                aria-controls="register-password_confirmation"
+                @click="passwordVisibility.password_confirmation = !passwordVisibility.password_confirmation"
+              >
+                <i class="bi" :class="passwordVisibility.password_confirmation ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true" />
+              </button>
+            </div>
             <input
+              v-else
               :id="`register-${field.key}`"
               v-model="form[field.key]"
               :type="field.type"

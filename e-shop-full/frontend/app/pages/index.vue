@@ -96,6 +96,71 @@ const steps = [
       </div>
     </section>
 
+    <section id="demo" class="home-demo section-surface py-5" aria-labelledby="demo-title">
+      <div class="container py-lg-4">
+        <div class="row align-items-center g-4 g-lg-5">
+          <div class="col-lg-4">
+            <span class="section-eyebrow">Démo animée</span>
+            <h2 id="demo-title" class="h1 gold-rule">De votre idée à votre boutique en ligne</h2>
+            <p class="text-muted mt-4 mb-4">
+              Vous n’avez pas besoin de savoir coder pour vendre en ligne. En quelques étapes, ShopAI vous aide à
+              transformer votre idée en une boutique à votre image : présentez votre activité, choisissez un univers
+              visuel, puis préparez votre catalogue pour accueillir vos premiers clients.
+            </p>
+            <ol class="home-demo-steps list-unstyled mb-0">
+              <li>
+                <span aria-hidden="true">01</span>
+                <div>
+                  <h3 class="h6 mb-1">Décrivez votre activité</h3>
+                  <p class="small text-muted mb-0">Indiquez le nom de votre boutique, ce que vous vendez et l’ambiance que vous souhaitez transmettre. Ces informations servent de point de départ à votre vitrine.</p>
+                </div>
+              </li>
+              <li>
+                <span aria-hidden="true">02</span>
+                <div>
+                  <h3 class="h6 mb-1">Créez votre boutique</h3>
+                  <p class="small text-muted mb-0">Parcourez les styles proposés, sélectionnez celui qui correspond à votre activité, puis ajustez les éléments de présentation pour créer une boutique cohérente avec votre marque.</p>
+                </div>
+              </li>
+              <li>
+                <span aria-hidden="true">03</span>
+                <div>
+                  <h3 class="h6 mb-1">Ajoutez un produit</h3>
+                  <p class="small text-muted mb-0">Ajoutez le nom, le prix, les photos et les détails utiles de votre article. Vous pouvez rédiger sa description avec l’aide de l’IA, puis compléter votre catalogue à votre rythme.</p>
+                </div>
+              </li>
+              <li>
+                <span aria-hidden="true">04</span>
+                <div>
+                  <h3 class="h6 mb-1">Vérifiez et partagez</h3>
+                  <p class="small text-muted mb-0">L’agent IA analyse chaque produit avant sa publication. Vous pouvez ensuite partager le lien de votre boutique.</p>
+                </div>
+              </li>
+            </ol>
+          </div>
+          <div class="col-lg-8">
+            <div class="home-demo-frame">
+              <video
+                class="home-demo-video"
+                controls
+                playsinline
+                preload="metadata"
+                poster="/videos/shopai-demo-poster.jpg"
+                aria-label="Démo animée : création d'une boutique ShopAI et ajout d'un produit"
+              >
+                <source src="/videos/shopai-demo.mp4" type="video/mp4">
+                Votre navigateur ne prend pas en charge la lecture des vidéos.
+              </video>
+            </div>
+            <p class="small text-muted mt-3 mb-0">
+              <i class="bi bi-play-circle me-1" aria-hidden="true" />
+              Dans cette démonstration, suivez le parcours complet : de la présentation de votre activité au choix du style, jusqu’à l’ajout, la vérification et le partage de votre premier produit.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="produits" class="container py-5 my-lg-3" aria-labelledby="featured-title">
       <div class="d-flex justify-content-between align-items-end mb-4 flex-wrap gap-3">
         <div>

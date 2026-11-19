@@ -57,6 +57,7 @@ class ProductModerationAgent
             'moderation_engine' => $result->engine,
             'moderation_note' => null,
             'moderated_at' => now(),
+            'moderated_by' => null,
         ])->saveQuietly();
 
         return $product;

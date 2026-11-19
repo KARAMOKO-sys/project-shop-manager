@@ -23,7 +23,7 @@ class AuthControllerTest extends TestCase
             ->assertJsonPath('data.user.email', 'awa@example.com')
             ->assertJsonPath('data.user.is_admin', false)
             ->assertJsonStructure(['data' => ['token']]);
-        $this->assertDatabaseHas('users', ['email' => 'awa@example.com', 'is_admin' => false]);
+        $this->assertDatabaseHas('users', ['email' => 'awa@example.com', 'role' => 'merchant']);
     }
 
     public function test_register_rejects_duplicate_email_with_422(): void

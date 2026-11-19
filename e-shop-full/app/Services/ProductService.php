@@ -7,11 +7,17 @@ use App\Jobs\ModerateProduct;
 use App\Models\Product;
 use App\Models\Shop;
 use App\Services\AI\LanguageModel;
+use App\Services\Erp\InventoryService;
+use App\Services\Erp\ModuleRegistry;
 use Illuminate\Support\Str;
 
 class ProductService
 {
-    public function __construct(private LanguageModel $languageModel) {}
+    public function __construct(
+        private LanguageModel $languageModel,
+        private ModuleRegistry $modules,
+        private InventoryService $inventory,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -23,6 +29,10 @@ class ProductService
         $payload['moderation_status'] = ModerationStatus::Pending;
 
         $product = $shop->products()->create($payload);
+
+        if ($this->modules->isInstalled($shop, 'inventory')) {
+            $this->inventory->recordManualChange($product, (int) $product->stock_quantity);
+        }
 
         $this->requestModeration($product);
 
@@ -45,12 +55,17 @@ class ProductService
         }
 
         $needsReview = $product->isDirty(Product::MODERATED_FIELDS);
+        $stockDifference = $product->isDirty('stock_quantity') ? (int) $product->stock_quantity - (int) $product->getOriginal('stock_quantity') : 0;
 
         if ($needsReview) {
             $product->moderation_status = ModerationStatus::Pending;
         }
 
         $product->save();
+
+        if ($stockDifference !== 0 && $this->modules->isInstalled($product->shop, 'inventory')) {
+            $this->inventory->recordManualChange($product, $stockDifference);
+        }
 
         if ($needsReview) {
             $this->requestModeration($product);

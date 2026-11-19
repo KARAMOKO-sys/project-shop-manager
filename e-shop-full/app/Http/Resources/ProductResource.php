@@ -47,6 +47,7 @@ class ProductResource extends JsonResource
                 'note' => $this->moderation_note,
                 'checked_at' => $this->moderated_at,
                 'engine' => $this->moderation_engine,
+                'reviewed_by' => $this->whenLoaded('moderator', fn () => $this->moderator?->name),
             ],
             'is_public' => $this->isPubliclyVisible(),
             'created_at' => $this->created_at,

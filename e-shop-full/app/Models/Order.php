@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DeliveryMethod;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use Database\Factories\OrderFactory;
@@ -29,12 +30,16 @@ class Order extends Model
         'currency',
         'payment_method',
         'payment_status',
+        'delivery_method',
+        'delivery_address',
+        'delivery_city',
         'notes',
     ];
 
     protected $casts = [
         'status' => OrderStatus::class,
         'payment_method' => PaymentMethod::class,
+        'delivery_method' => DeliveryMethod::class,
         'subtotal' => 'decimal:2',
         'shipping_amount' => 'decimal:2',
         'discount_amount' => 'decimal:2',
